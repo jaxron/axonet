@@ -47,7 +47,6 @@ type Request struct {
 	marshalBody   interface{}
 	header        http.Header
 	query         Query
-	useCookie     bool
 }
 
 // NewRequest creates a new Request with default options.
@@ -63,7 +62,6 @@ func (c *Client) NewRequest() *Request {
 		marshalBody:   nil,
 		header:        make(http.Header),
 		query:         make(Query),
-		useCookie:     false,
 	}
 }
 
@@ -118,12 +116,6 @@ func (rb *Request) Query(key, value string) *Request {
 // Header adds a header to the request.
 func (rb *Request) Header(key, value string) *Request {
 	rb.header.Set(key, value)
-	return rb
-}
-
-// UseCookie sets whether to use the cookie for authentication.
-func (rb *Request) UseCookie(use bool) *Request {
-	rb.useCookie = use
 	return rb
 }
 
