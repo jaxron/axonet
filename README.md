@@ -4,13 +4,13 @@
   </picture>
   <br>
   <a href="https://github.com/jaxron/axonet/blob/main/LICENSE.md">
-    <img src="https://img.shields.io/github/license/jaxron/axonet?style=flat-square&color=008ae6">
+    <img src="https://img.shields.io/github/license/jaxron/axonet?style=flat-square&color=4a92e1">
   </a>
   <a href="https://github.com/jaxron/axonet/actions/workflows/ci.yml">
-    <img src="https://img.shields.io/github/actions/workflow/status/jaxron/axonet/ci.yml?style=flat-square&color=008ae6">
+    <img src="https://img.shields.io/github/actions/workflow/status/jaxron/axonet/ci.yml?style=flat-square&color=4a92e1">
   </a>
   <a href="https://github.com/jaxron/axonet/issues">
-    <img src="https://img.shields.io/github/issues/jaxron/axonet?style=flat-square&color=008ae6">
+    <img src="https://img.shields.io/github/issues/jaxron/axonet?style=flat-square&color=4a92e1">
   </a>
 </h1>
 
@@ -148,12 +148,12 @@ The client can be configured with various middlewares when using the `NewClient`
 
 ```bash
 go get github.com/jaxron/axonet/middleware/circuitbreaker
-go get github.com/jaxron/axonet/middleware/retry
-go get github.com/jaxron/axonet/middleware/ratelimit
-go get github.com/jaxron/axonet/middleware/singleflight
-go get github.com/jaxron/axonet/middleware/proxy
 go get github.com/jaxron/axonet/middleware/cookie
 go get github.com/jaxron/axonet/middleware/header
+go get github.com/jaxron/axonet/middleware/proxy
+go get github.com/jaxron/axonet/middleware/ratelimit
+go get github.com/jaxron/axonet/middleware/retry
+go get github.com/jaxron/axonet/middleware/singleflight
 ```
 
 Then, configure the client:
@@ -170,7 +170,7 @@ import (
     "github.com/jaxron/axonet/middleware/singleflight"
 )
 
-client := client.NewClient(
+c := client.NewClient(
   client.WithMiddleware(circuitbreaker.New(5, 10*time.Second, 30*time.Second)),
     client.WithMiddleware(cookie.New([][]*http.Cookie{cookies1, cookies2})),
     client.WithMiddleware(header.New(http.Header{"User-Agent": {"MyApp/1.0"}})),
@@ -232,12 +232,12 @@ import (
 )
 
 // Using Sonic
-client.NewRequest().
+c.NewRequest().
     MarshalWith(sonic.Marshal).
     UnmarshalWith(sonic.Unmarshal)
 
 // Using go-json
-client.NewRequest().
+c.NewRequest().
     MarshalWith(json.Marshal).
     UnmarshalWith(json.Unmarshal)
 ```
