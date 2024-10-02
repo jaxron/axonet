@@ -2,7 +2,7 @@ package cookie
 
 import (
 	"net/http"
-	"sync"
+	"sync/atomic"
 
 	"github.com/jaxron/axonet/pkg/client/context"
 	"github.com/jaxron/axonet/pkg/client/logger"
@@ -10,31 +10,35 @@ import (
 
 // CookieMiddleware manages cookie rotation for HTTP requests.
 type CookieMiddleware struct {
-	cookies [][]*http.Cookie
-	current int
+	cookies atomic.Value
+	current atomic.Uint64
 	logger  logger.Logger
-	mu      sync.RWMutex
+}
+
+type cookieState struct {
+	cookies [][]*http.Cookie
 }
 
 // New creates a new CookieMiddleware instance.
 func New(cookies [][]*http.Cookie) *CookieMiddleware {
-	return &CookieMiddleware{
-		cookies: cookies,
-		current: 0,
+	m := &CookieMiddleware{
+		cookies: atomic.Value{},
+		current: atomic.Uint64{},
 		logger:  &logger.NoOpLogger{},
-		mu:      sync.RWMutex{},
 	}
+	m.cookies.Store(&cookieState{cookies: cookies})
+	return m
 }
 
 // Process applies cookie logic before passing the request to the next middleware.
 func (m *CookieMiddleware) Process(ctx *context.Context) (*http.Response, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
+	state := m.cookies.Load().(*cookieState)
+	cookiesLen := len(state.cookies)
 
-	if len(m.cookies) > 0 {
-		// Get the next set of cookies to use
-		cookies := m.cookies[m.current]
-		m.current = (m.current + 1) % len(m.cookies)
+	if cookiesLen > 0 {
+		current := m.current.Add(1) - 1            // Subtract 1 to start from 0
+		index := int(current % uint64(cookiesLen)) // #nosec G115
+		cookies := state.cookies[index]
 
 		m.logger.WithFields(logger.Int("cookies", len(cookies))).Debug("Using Cookie")
 
@@ -43,27 +47,23 @@ func (m *CookieMiddleware) Process(ctx *context.Context) (*http.Response, error)
 			ctx.Req.AddCookie(cookie)
 		}
 	}
+
 	return ctx.Next(ctx)
 }
 
 // UpdateCookies updates the list of cookies at runtime.
 func (m *CookieMiddleware) UpdateCookies(cookies [][]*http.Cookie) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	// Replace the existing cookie list with the new one
-	m.cookies = cookies
-	m.current = 0
+	newState := &cookieState{cookies: cookies}
+	m.cookies.Store(newState)
+	m.current.Store(0)
 
 	m.logger.WithFields(logger.Int("cookies", len(cookies))).Debug("Cookies updated")
 }
 
 // GetCookieCount returns the current number of cookies in the list.
 func (m *CookieMiddleware) GetCookieCount() int {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	return len(m.cookies)
+	state := m.cookies.Load().(*cookieState)
+	return len(state.cookies)
 }
 
 // SetLogger sets the logger for the middleware.

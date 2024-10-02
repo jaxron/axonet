@@ -4,7 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
-	"sync"
+	"sync/atomic"
 
 	"github.com/jaxron/axonet/pkg/client/context"
 	"github.com/jaxron/axonet/pkg/client/logger"
@@ -14,33 +14,42 @@ var ErrInvalidTransport = errors.New("invalid transport")
 
 // ProxyMiddleware manages proxy rotation for HTTP requests.
 type ProxyMiddleware struct {
-	proxies []*url.URL
-	current int
+	proxies atomic.Value // stores []*url.URL
+	current atomic.Uint64
 	logger  logger.Logger
-	mu      sync.RWMutex
 }
 
 // New creates a new ProxyMiddleware instance.
 func New(proxies []*url.URL) *ProxyMiddleware {
-	return &ProxyMiddleware{
-		proxies: proxies,
-		current: 0,
+	m := &ProxyMiddleware{
+		proxies: atomic.Value{},
+		current: atomic.Uint64{},
 		logger:  &logger.NoOpLogger{},
-		mu:      sync.RWMutex{},
 	}
+	m.proxies.Store(proxies)
+	return m
 }
 
 // Process applies proxy logic before passing the request to the next middleware.
 func (m *ProxyMiddleware) Process(ctx *context.Context) (*http.Response, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	proxies := m.proxies.Load().([]*url.URL)
+	proxyLen := len(proxies)
 
-	if len(m.proxies) > 0 {
-		// Get the next proxy to use
-		proxy := m.proxies[m.current]
-		m.current = (m.current + 1) % len(m.proxies)
+	if proxyLen > 0 {
+		current := m.current.Add(1) - 1          // Subtract 1 to start from 0
+		index := int(current % uint64(proxyLen)) // #nosec G115
+		proxy := proxies[index]
 
 		m.logger.WithFields(logger.String("proxy", proxy.Host)).Debug("Using Proxy")
+
+		// Clone the client to avoid modifying the original
+		clonedClient := &http.Client{
+			Transport:     ctx.Client.Transport,
+			CheckRedirect: ctx.Client.CheckRedirect,
+			Jar:           ctx.Client.Jar,
+			Timeout:       ctx.Client.Timeout,
+		}
+		ctx.Client = clonedClient
 
 		// Apply the proxy to the request
 		transport, ok := ctx.Client.Transport.(*http.Transport)
@@ -50,27 +59,22 @@ func (m *ProxyMiddleware) Process(ctx *context.Context) (*http.Response, error) 
 		transport.Proxy = http.ProxyURL(proxy)
 		ctx.Client.Transport = transport
 	}
+
 	return ctx.Next(ctx)
 }
 
 // UpdateProxies updates the list of proxies at runtime.
-// It replaces the existing proxy list with the new one and randomizes the starting proxy.
 func (m *ProxyMiddleware) UpdateProxies(newProxies []*url.URL) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	m.proxies = newProxies
-	m.current = 0
+	m.proxies.Store(newProxies)
+	m.current.Store(0)
 
 	m.logger.WithFields(logger.Int("proxy_count", len(newProxies))).Debug("Proxies updated")
 }
 
 // GetProxyCount returns the current number of proxies in the list.
 func (m *ProxyMiddleware) GetProxyCount() int {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	return len(m.proxies)
+	proxies := m.proxies.Load().([]*url.URL)
+	return len(proxies)
 }
 
 // SetLogger sets the logger for the middleware.
