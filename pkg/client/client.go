@@ -98,7 +98,7 @@ func (c *Client) performRequest(ctx *context.Context) (*http.Response, error) {
 	).Debug("Request")
 
 	// Send the request
-	resp, err := c.httpClient.Do(ctx.Req)
+	resp, err := ctx.Client.Do(ctx.Req)
 	if err != nil {
 		if errors.Is(err, stdcontext.DeadlineExceeded) {
 			return nil, fmt.Errorf("request timed out: %w: %w", errors.ErrTimeout, err)
