@@ -16,8 +16,8 @@ type CookieMiddleware struct {
 	mu      sync.RWMutex
 }
 
-// NewCookieMiddleware creates a new CookieMiddleware instance.
-func NewCookieMiddleware(cookies [][]*http.Cookie) *CookieMiddleware {
+// New creates a new CookieMiddleware instance.
+func New(cookies [][]*http.Cookie) *CookieMiddleware {
 	return &CookieMiddleware{
 		cookies: cookies,
 		current: 0,

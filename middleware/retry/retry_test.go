@@ -17,7 +17,7 @@ import (
 
 func TestRetryMiddleware(t *testing.T) {
 	t.Run("Successful request without retries", func(t *testing.T) {
-		middleware := retry.NewRetryMiddleware(3, 10*time.Millisecond, 100*time.Millisecond)
+		middleware := retry.New(3, 10*time.Millisecond, 100*time.Millisecond)
 		middleware.SetLogger(logger.NewBasicLogger())
 
 		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
@@ -37,7 +37,7 @@ func TestRetryMiddleware(t *testing.T) {
 	t.Run("Retry on temporary error", func(t *testing.T) {
 		attempts := 0
 		maxAttempts := uint64(3)
-		middleware := retry.NewRetryMiddleware(maxAttempts, 10*time.Millisecond, 100*time.Millisecond)
+		middleware := retry.New(maxAttempts, 10*time.Millisecond, 100*time.Millisecond)
 		middleware.SetLogger(logger.NewBasicLogger())
 
 		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
@@ -62,7 +62,7 @@ func TestRetryMiddleware(t *testing.T) {
 	t.Run("Fail after max retries", func(t *testing.T) {
 		attempts := 0
 		maxAttempts := uint64(3)
-		middleware := retry.NewRetryMiddleware(maxAttempts, 10*time.Millisecond, 100*time.Millisecond)
+		middleware := retry.New(maxAttempts, 10*time.Millisecond, 100*time.Millisecond)
 		middleware.SetLogger(logger.NewBasicLogger())
 
 		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
@@ -84,7 +84,7 @@ func TestRetryMiddleware(t *testing.T) {
 
 	t.Run("No retry on permanent error", func(t *testing.T) {
 		attempts := 0
-		middleware := retry.NewRetryMiddleware(3, 10*time.Millisecond, 100*time.Millisecond)
+		middleware := retry.New(3, 10*time.Millisecond, 100*time.Millisecond)
 		middleware.SetLogger(logger.NewBasicLogger())
 
 		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
@@ -106,7 +106,7 @@ func TestRetryMiddleware(t *testing.T) {
 
 	t.Run("Respect context cancellation", func(t *testing.T) {
 		attempts := 0
-		middleware := retry.NewRetryMiddleware(5, 10*time.Millisecond, 100*time.Millisecond)
+		middleware := retry.New(5, 10*time.Millisecond, 100*time.Millisecond)
 		middleware.SetLogger(logger.NewBasicLogger())
 
 		ctx, cancel := stdcontext.WithCancel(stdcontext.Background())

@@ -19,7 +19,7 @@ import (
 
 func TestSingleFlightMiddleware(t *testing.T) {
 	t.Run("Deduplicate concurrent identical requests", func(t *testing.T) {
-		middleware := singleflight.NewSingleFlightMiddleware()
+		middleware := singleflight.New()
 		middleware.SetLogger(logger.NewBasicLogger())
 
 		requestCount := 0
@@ -59,7 +59,7 @@ func TestSingleFlightMiddleware(t *testing.T) {
 	})
 
 	t.Run("Different requests are not deduplicated", func(t *testing.T) {
-		middleware := singleflight.NewSingleFlightMiddleware()
+		middleware := singleflight.New()
 		middleware.SetLogger(logger.NewBasicLogger())
 
 		requestCount := 0
@@ -100,7 +100,7 @@ func TestSingleFlightMiddleware(t *testing.T) {
 	})
 
 	t.Run("Requests with different bodies are not deduplicated", func(t *testing.T) {
-		middleware := singleflight.NewSingleFlightMiddleware()
+		middleware := singleflight.New()
 		middleware.SetLogger(logger.NewBasicLogger())
 
 		requestCount := 0
@@ -141,7 +141,7 @@ func TestSingleFlightMiddleware(t *testing.T) {
 	})
 
 	t.Run("Error handling", func(t *testing.T) {
-		middleware := singleflight.NewSingleFlightMiddleware()
+		middleware := singleflight.New()
 		middleware.SetLogger(logger.NewBasicLogger())
 
 		handler := func(ctx *clientContext.Context) (*http.Response, error) {
@@ -163,7 +163,7 @@ func TestSingleFlightMiddleware(t *testing.T) {
 	})
 
 	t.Run("Request body can be read after key generation", func(t *testing.T) {
-		middleware := singleflight.NewSingleFlightMiddleware()
+		middleware := singleflight.New()
 		middleware.SetLogger(logger.NewBasicLogger())
 
 		body := "test body"

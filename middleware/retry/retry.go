@@ -19,8 +19,8 @@ type RetryMiddleware struct {
 	logger          logger.Logger
 }
 
-// NewRetryMiddleware creates a new RetryMiddleware instance.
-func NewRetryMiddleware(maxAttempts uint64, initialInterval, maxInterval time.Duration) *RetryMiddleware {
+// New creates a new RetryMiddleware instance.
+func New(maxAttempts uint64, initialInterval, maxInterval time.Duration) *RetryMiddleware {
 	return &RetryMiddleware{
 		maxAttempts:     maxAttempts,
 		initialInterval: initialInterval,

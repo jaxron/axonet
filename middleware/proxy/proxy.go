@@ -18,8 +18,8 @@ type ProxyMiddleware struct {
 	mu      sync.RWMutex
 }
 
-// NewProxyMiddleware creates a new ProxyMiddleware instance.
-func NewProxyMiddleware(proxies []*url.URL) *ProxyMiddleware {
+// New creates a new ProxyMiddleware instance.
+func New(proxies []*url.URL) *ProxyMiddleware {
 	return &ProxyMiddleware{
 		proxies: proxies,
 		current: 0,

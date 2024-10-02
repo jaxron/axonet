@@ -17,8 +17,8 @@ type CircuitBreakerMiddleware struct {
 	logger  logger.Logger
 }
 
-// NewCircuitBreakerMiddleware creates a new CircuitBreakerMiddleware instance.
-func NewCircuitBreakerMiddleware(maxRequests uint32, interval, timeout time.Duration) *CircuitBreakerMiddleware {
+// New creates a new CircuitBreakerMiddleware instance.
+func New(maxRequests uint32, interval, timeout time.Duration) *CircuitBreakerMiddleware {
 	middleware := &CircuitBreakerMiddleware{
 		breaker: nil,
 		logger:  &logger.NoOpLogger{},

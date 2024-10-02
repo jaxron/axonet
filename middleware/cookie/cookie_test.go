@@ -25,7 +25,7 @@ func TestCookieMiddleware(t *testing.T) {
 			},
 		}
 
-		middleware := cookie.NewCookieMiddleware(cookies)
+		middleware := cookie.New(cookies)
 		middleware.SetLogger(logger.NewBasicLogger())
 
 		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
@@ -71,7 +71,7 @@ func TestCookieMiddleware(t *testing.T) {
 			{&http.Cookie{Name: "session", Value: "789"}},
 		}
 
-		middleware := cookie.NewCookieMiddleware(cookies)
+		middleware := cookie.New(cookies)
 		middleware.SetLogger(logger.NewBasicLogger())
 
 		for i := 0; i < 5; i++ {
@@ -99,7 +99,7 @@ func TestCookieMiddleware(t *testing.T) {
 			{&http.Cookie{Name: "session", Value: "initial"}},
 		}
 
-		middleware := cookie.NewCookieMiddleware(initialCookies)
+		middleware := cookie.New(initialCookies)
 		middleware.SetLogger(logger.NewBasicLogger())
 
 		// Initial request
@@ -136,7 +136,7 @@ func TestCookieMiddleware(t *testing.T) {
 			{&http.Cookie{Name: "session", Value: "456"}},
 		}
 
-		middleware := cookie.NewCookieMiddleware(cookies)
+		middleware := cookie.New(cookies)
 		assert.Equal(t, 2, middleware.GetCookieCount())
 
 		newCookies := [][]*http.Cookie{
@@ -149,7 +149,7 @@ func TestCookieMiddleware(t *testing.T) {
 	})
 
 	t.Run("No cookies", func(t *testing.T) {
-		middleware := cookie.NewCookieMiddleware(nil)
+		middleware := cookie.New(nil)
 		middleware.SetLogger(logger.NewBasicLogger())
 
 		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)

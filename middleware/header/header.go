@@ -13,8 +13,8 @@ type HeaderMiddleware struct {
 	logger  logger.Logger
 }
 
-// NewHeaderMiddleware creates a new HeaderMiddleware instance.
-func NewHeaderMiddleware(headers http.Header) *HeaderMiddleware {
+// New creates a new HeaderMiddleware instance.
+func New(headers http.Header) *HeaderMiddleware {
 	return &HeaderMiddleware{
 		headers: headers,
 		logger:  &logger.NoOpLogger{},

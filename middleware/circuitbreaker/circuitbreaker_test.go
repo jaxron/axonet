@@ -17,7 +17,7 @@ import (
 
 func TestCircuitBreakerMiddleware(t *testing.T) {
 	t.Run("Success scenario", func(t *testing.T) {
-		middleware := circuitbreaker.NewCircuitBreakerMiddleware(5, 10*time.Second, 30*time.Second)
+		middleware := circuitbreaker.New(5, 10*time.Second, 30*time.Second)
 		middleware.SetLogger(logger.NewBasicLogger())
 
 		ctx := &clientContext.Context{
@@ -34,7 +34,7 @@ func TestCircuitBreakerMiddleware(t *testing.T) {
 	})
 
 	t.Run("Circuit opens after multiple failures", func(t *testing.T) {
-		middleware := circuitbreaker.NewCircuitBreakerMiddleware(3, 10*time.Second, 1*time.Second)
+		middleware := circuitbreaker.New(3, 10*time.Second, 1*time.Second)
 		middleware.SetLogger(logger.NewBasicLogger())
 
 		ctx := &clientContext.Context{
@@ -58,7 +58,7 @@ func TestCircuitBreakerMiddleware(t *testing.T) {
 	})
 
 	t.Run("Circuit half-open state", func(t *testing.T) {
-		middleware := circuitbreaker.NewCircuitBreakerMiddleware(3, 10*time.Second, 100*time.Millisecond)
+		middleware := circuitbreaker.New(3, 10*time.Second, 100*time.Millisecond)
 		middleware.SetLogger(logger.NewBasicLogger())
 
 		failingCtx := &clientContext.Context{

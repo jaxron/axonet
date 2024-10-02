@@ -20,7 +20,7 @@ func TestProxyMiddleware(t *testing.T) {
 		proxy2, _ := url.Parse("http://proxy2.example.com")
 		proxies := []*url.URL{proxy1, proxy2}
 
-		middleware := proxy.NewProxyMiddleware(proxies)
+		middleware := proxy.New(proxies)
 		middleware.SetLogger(logger.NewBasicLogger())
 
 		transport := &http.Transport{}
@@ -56,7 +56,7 @@ func TestProxyMiddleware(t *testing.T) {
 
 	t.Run("Update proxies at runtime", func(t *testing.T) {
 		initialProxy, _ := url.Parse("http://initial.example.com")
-		middleware := proxy.NewProxyMiddleware([]*url.URL{initialProxy})
+		middleware := proxy.New([]*url.URL{initialProxy})
 		middleware.SetLogger(logger.NewBasicLogger())
 
 		transport := &http.Transport{}
@@ -91,7 +91,7 @@ func TestProxyMiddleware(t *testing.T) {
 		proxy2, _ := url.Parse("http://proxy2.example.com")
 		proxies := []*url.URL{proxy1, proxy2}
 
-		middleware := proxy.NewProxyMiddleware(proxies)
+		middleware := proxy.New(proxies)
 		assert.Equal(t, 2, middleware.GetProxyCount())
 
 		newProxy, _ := url.Parse("http://new.example.com")
@@ -100,7 +100,7 @@ func TestProxyMiddleware(t *testing.T) {
 	})
 
 	t.Run("No proxies", func(t *testing.T) {
-		middleware := proxy.NewProxyMiddleware(nil)
+		middleware := proxy.New(nil)
 		middleware.SetLogger(logger.NewBasicLogger())
 
 		transport := &http.Transport{}
@@ -123,7 +123,7 @@ func TestProxyMiddleware(t *testing.T) {
 
 	t.Run("Invalid transport", func(t *testing.T) {
 		proxyURL, _ := url.Parse("http://proxy.example.com")
-		middleware := proxy.NewProxyMiddleware([]*url.URL{proxyURL})
+		middleware := proxy.New([]*url.URL{proxyURL})
 		middleware.SetLogger(logger.NewBasicLogger())
 
 		client := &http.Client{Transport: nil}

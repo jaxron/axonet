@@ -19,7 +19,7 @@ func TestHeaderMiddleware(t *testing.T) {
 			"X-Custom":   []string{"Value1", "Value2"},
 		}
 
-		middleware := header.NewHeaderMiddleware(headers)
+		middleware := header.New(headers)
 		middleware.SetLogger(logger.NewBasicLogger())
 
 		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
@@ -44,7 +44,7 @@ func TestHeaderMiddleware(t *testing.T) {
 			"X-Existing": []string{"NewValue"},
 		}
 
-		middleware := header.NewHeaderMiddleware(headers)
+		middleware := header.New(headers)
 		middleware.SetLogger(logger.NewBasicLogger())
 
 		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
@@ -65,7 +65,7 @@ func TestHeaderMiddleware(t *testing.T) {
 	})
 
 	t.Run("Empty headers", func(t *testing.T) {
-		middleware := header.NewHeaderMiddleware(http.Header{})
+		middleware := header.New(http.Header{})
 		middleware.SetLogger(logger.NewBasicLogger())
 
 		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
@@ -90,7 +90,7 @@ func TestHeaderMiddleware(t *testing.T) {
 			"X-Multi": []string{"Value1", "Value2", "Value3"},
 		}
 
-		middleware := header.NewHeaderMiddleware(headers)
+		middleware := header.New(headers)
 		middleware.SetLogger(logger.NewBasicLogger())
 
 		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)

@@ -16,8 +16,8 @@ type RateLimiterMiddleware struct {
 	logger  logger.Logger
 }
 
-// NewRateLimiterMiddleware creates a new RateLimiterMiddleware instance.
-func NewRateLimiterMiddleware(requestsPerSecond float64, burst int) *RateLimiterMiddleware {
+// New creates a new RateLimiterMiddleware instance.
+func New(requestsPerSecond float64, burst int) *RateLimiterMiddleware {
 	return &RateLimiterMiddleware{
 		limiter: rate.NewLimiter(rate.Limit(requestsPerSecond), burst),
 		logger:  &logger.NoOpLogger{},

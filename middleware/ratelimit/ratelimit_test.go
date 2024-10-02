@@ -19,7 +19,7 @@ func TestRateLimiterMiddleware(t *testing.T) {
 	t.Run("Respect rate limit", func(t *testing.T) {
 		requestsPerSecond := 10.0
 		burst := 1
-		middleware := ratelimit.NewRateLimiterMiddleware(requestsPerSecond, burst)
+		middleware := ratelimit.New(requestsPerSecond, burst)
 		middleware.SetLogger(logger.NewBasicLogger())
 
 		makeRequest := func(ctx context.Context) error {
@@ -58,7 +58,7 @@ func TestRateLimiterMiddleware(t *testing.T) {
 	t.Run("Burst allows multiple requests", func(t *testing.T) {
 		requestsPerSecond := 1.0
 		burst := 3
-		middleware := ratelimit.NewRateLimiterMiddleware(requestsPerSecond, burst)
+		middleware := ratelimit.New(requestsPerSecond, burst)
 		middleware.SetLogger(logger.NewBasicLogger())
 
 		makeRequest := func(ctx context.Context) error {

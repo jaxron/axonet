@@ -20,8 +20,8 @@ type SingleFlightMiddleware struct {
 	logger  logger.Logger
 }
 
-// NewSingleFlightMiddleware creates a new SingleFlightMiddleware instance.
-func NewSingleFlightMiddleware() *SingleFlightMiddleware {
+// New creates a new SingleFlightMiddleware instance.
+func New() *SingleFlightMiddleware {
 	return &SingleFlightMiddleware{
 		sfGroup: &singleflight.Group{},
 		logger:  &logger.NoOpLogger{},
