@@ -1,0 +1,12 @@
+go 1.23.1
+
+use (
+    .
+    ./middleware/circuitbreaker
+    ./middleware/ratelimit
+    ./middleware/retry
+    ./middleware/cookie
+    ./middleware/header
+    ./middleware/proxy
+    ./middleware/singleflight
+)
