@@ -14,9 +14,13 @@ var ErrInvalidTransport = errors.New("invalid transport")
 
 // ProxyMiddleware manages proxy rotation for HTTP requests.
 type ProxyMiddleware struct {
-	proxies atomic.Value // stores []*url.URL
+	proxies atomic.Value
 	current atomic.Uint64
 	logger  logger.Logger
+}
+
+type proxyState struct {
+	proxies []*url.URL
 }
 
 // New creates a new ProxyMiddleware instance.
@@ -26,19 +30,19 @@ func New(proxies []*url.URL) *ProxyMiddleware {
 		current: atomic.Uint64{},
 		logger:  &logger.NoOpLogger{},
 	}
-	m.proxies.Store(proxies)
+	m.proxies.Store(&proxyState{proxies: proxies})
 	return m
 }
 
 // Process applies proxy logic before passing the request to the next middleware.
 func (m *ProxyMiddleware) Process(ctx *context.Context) (*http.Response, error) {
-	proxies := m.proxies.Load().([]*url.URL)
-	proxyLen := len(proxies)
+	state := m.proxies.Load().(*proxyState)
+	proxyLen := len(state.proxies)
 
 	if proxyLen > 0 {
 		current := m.current.Add(1) - 1          // Subtract 1 to start from 0
 		index := int(current % uint64(proxyLen)) // #nosec G115
-		proxy := proxies[index]
+		proxy := state.proxies[index]
 
 		m.logger.WithFields(logger.String("proxy", proxy.Host)).Debug("Using Proxy")
 
@@ -65,7 +69,8 @@ func (m *ProxyMiddleware) Process(ctx *context.Context) (*http.Response, error) 
 
 // UpdateProxies updates the list of proxies at runtime.
 func (m *ProxyMiddleware) UpdateProxies(newProxies []*url.URL) {
-	m.proxies.Store(newProxies)
+	newState := &proxyState{proxies: newProxies}
+	m.proxies.Store(newState)
 	m.current.Store(0)
 
 	m.logger.WithFields(logger.Int("proxy_count", len(newProxies))).Debug("Proxies updated")
@@ -73,8 +78,8 @@ func (m *ProxyMiddleware) UpdateProxies(newProxies []*url.URL) {
 
 // GetProxyCount returns the current number of proxies in the list.
 func (m *ProxyMiddleware) GetProxyCount() int {
-	proxies := m.proxies.Load().([]*url.URL)
-	return len(proxies)
+	state := m.proxies.Load().(*proxyState)
+	return len(state.proxies)
 }
 
 // SetLogger sets the logger for the middleware.
