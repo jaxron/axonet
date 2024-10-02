@@ -2,6 +2,7 @@ package singleflight
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -9,9 +10,14 @@ import (
 
 	"github.com/cespare/xxhash"
 	"github.com/jaxron/axonet/pkg/client/context"
-	"github.com/jaxron/axonet/pkg/client/errors"
+	clientErrors "github.com/jaxron/axonet/pkg/client/errors"
 	"github.com/jaxron/axonet/pkg/client/logger"
 	"golang.org/x/sync/singleflight"
+)
+
+var (
+	ErrKeyGeneration = errors.New("failed to generate request key")
+	ErrRequestFailed = errors.New("request failed")
 )
 
 // SingleFlightMiddleware implements the singleflight pattern to deduplicate concurrent identical requests.
@@ -35,7 +41,7 @@ func (m *SingleFlightMiddleware) Process(ctx *context.Context) (*http.Response, 
 	// Generate a unique key for the request
 	key, err := m.generateRequestKey(ctx.Req)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", errors.ErrSingleFlight, err)
+		return nil, fmt.Errorf("%w: %w", ErrKeyGeneration, err)
 	}
 
 	// Use singleflight to execute the request
@@ -43,13 +49,13 @@ func (m *SingleFlightMiddleware) Process(ctx *context.Context) (*http.Response, 
 		return ctx.Next(ctx)
 	})
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", errors.ErrSingleFlight, err)
+		return nil, fmt.Errorf("%w: %w", ErrRequestFailed, err)
 	}
 
 	// Type assertion to get the response
 	resp, ok := result.(*http.Response)
 	if !ok {
-		return nil, errors.ErrUnreachable
+		return nil, clientErrors.ErrUnreachable
 	}
 
 	return resp, nil

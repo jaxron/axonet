@@ -1,14 +1,16 @@
 package ratelimit
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 
 	"github.com/jaxron/axonet/pkg/client/context"
-	"github.com/jaxron/axonet/pkg/client/errors"
 	"github.com/jaxron/axonet/pkg/client/logger"
 	"golang.org/x/time/rate"
 )
+
+var ErrRateLimitExceeded = errors.New("rate limit exceeded")
 
 // RateLimiterMiddleware implements a rate limiting middleware for HTTP requests.
 type RateLimiterMiddleware struct {
@@ -30,7 +32,7 @@ func (m *RateLimiterMiddleware) Process(ctx *context.Context) (*http.Response, e
 
 	// Wait for rate limiter permission
 	if err := m.limiter.Wait(ctx.Req.Context()); err != nil {
-		return nil, fmt.Errorf("%w: %w", errors.ErrRateLimitExceeded, err)
+		return nil, fmt.Errorf("%w: %w", ErrRateLimitExceeded, err)
 	}
 
 	// Execute the next middleware in the chain

@@ -8,7 +8,6 @@ import (
 
 	"github.com/jaxron/axonet/middleware/proxy"
 	clientContext "github.com/jaxron/axonet/pkg/client/context"
-	"github.com/jaxron/axonet/pkg/client/errors"
 	"github.com/jaxron/axonet/pkg/client/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -139,7 +138,7 @@ func TestProxyMiddleware(t *testing.T) {
 
 		_, err := middleware.Process(ctx)
 		assert.Error(t, err)
-		assert.Equal(t, errors.ErrInvalidTransport, err)
+		assert.Equal(t, proxy.ErrInvalidTransport, err)
 	})
 }
 

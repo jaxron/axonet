@@ -1,14 +1,16 @@
 package proxy
 
 import (
+	"errors"
 	"net/http"
 	"net/url"
 	"sync"
 
 	"github.com/jaxron/axonet/pkg/client/context"
-	"github.com/jaxron/axonet/pkg/client/errors"
 	"github.com/jaxron/axonet/pkg/client/logger"
 )
+
+var ErrInvalidTransport = errors.New("invalid transport")
 
 // ProxyMiddleware manages proxy rotation for HTTP requests.
 type ProxyMiddleware struct {
@@ -43,7 +45,7 @@ func (m *ProxyMiddleware) Process(ctx *context.Context) (*http.Response, error) 
 		// Apply the proxy to the request
 		transport, ok := ctx.Client.Transport.(*http.Transport)
 		if !ok {
-			return nil, errors.ErrInvalidTransport
+			return nil, ErrInvalidTransport
 		}
 		transport.Proxy = http.ProxyURL(proxy)
 		ctx.Client.Transport = transport

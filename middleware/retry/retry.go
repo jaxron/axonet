@@ -1,15 +1,18 @@
 package retry
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/jaxron/axonet/pkg/client/context"
-	"github.com/jaxron/axonet/pkg/client/errors"
+	clientErrors "github.com/jaxron/axonet/pkg/client/errors"
 	"github.com/jaxron/axonet/pkg/client/logger"
 )
+
+var ErrRetryFailed = errors.New("retry failed")
 
 // RetryMiddleware implements retry logic for HTTP requests with exponential backoff.
 type RetryMiddleware struct {
@@ -58,7 +61,7 @@ func (m *RetryMiddleware) Process(ctx *context.Context) (*http.Response, error) 
 		},
 	)
 	if retryErr != nil {
-		return nil, fmt.Errorf("%w: %w", errors.ErrRetryFailed, retryErr)
+		return nil, fmt.Errorf("%w: %w", ErrRetryFailed, retryErr)
 	}
 
 	return resp, nil
@@ -67,7 +70,7 @@ func (m *RetryMiddleware) Process(ctx *context.Context) (*http.Response, error) 
 // handleRetryError determines whether to retry the request based on the error type.
 func (m *RetryMiddleware) handleRetryError(err error) error {
 	if err != nil {
-		if errors.IsTemporary(err) {
+		if clientErrors.IsTemporary(err) {
 			return err // This will trigger a retry for temporary errors
 		}
 		return backoff.Permanent(err) // This will stop retries for permanent errors

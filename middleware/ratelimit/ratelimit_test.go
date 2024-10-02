@@ -9,7 +9,6 @@ import (
 
 	"github.com/jaxron/axonet/middleware/ratelimit"
 	clientContext "github.com/jaxron/axonet/pkg/client/context"
-	"github.com/jaxron/axonet/pkg/client/errors"
 	"github.com/jaxron/axonet/pkg/client/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -47,7 +46,7 @@ func TestRateLimiterMiddleware(t *testing.T) {
 
 		err := makeRequest(ctx)
 		require.Error(t, err)
-		assert.ErrorIs(t, err, errors.ErrRateLimitExceeded)
+		assert.ErrorIs(t, err, ratelimit.ErrRateLimitExceeded)
 
 		// After waiting, we should be able to make another request
 		time.Sleep(time.Second / time.Duration(requestsPerSecond))
@@ -86,6 +85,6 @@ func TestRateLimiterMiddleware(t *testing.T) {
 
 		err := makeRequest(ctx)
 		require.Error(t, err)
-		assert.ErrorIs(t, err, errors.ErrRateLimitExceeded)
+		assert.ErrorIs(t, err, ratelimit.ErrRateLimitExceeded)
 	})
 }

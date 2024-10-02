@@ -9,7 +9,6 @@ import (
 
 	"github.com/jaxron/axonet/middleware/circuitbreaker"
 	clientContext "github.com/jaxron/axonet/pkg/client/context"
-	clientErrors "github.com/jaxron/axonet/pkg/client/errors"
 	"github.com/jaxron/axonet/pkg/client/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -54,7 +53,7 @@ func TestCircuitBreakerMiddleware(t *testing.T) {
 		// The next call should return ErrCircuitOpen
 		_, err := middleware.Process(ctx)
 		require.Error(t, err)
-		assert.True(t, errors.Is(err, clientErrors.ErrCircuitOpen))
+		assert.True(t, errors.Is(err, circuitbreaker.ErrCircuitOpen))
 	})
 
 	t.Run("Circuit half-open state", func(t *testing.T) {

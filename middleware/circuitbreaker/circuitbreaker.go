@@ -1,14 +1,20 @@
 package circuitbreaker
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/jaxron/axonet/pkg/client/context"
-	"github.com/jaxron/axonet/pkg/client/errors"
+	clientErrors "github.com/jaxron/axonet/pkg/client/errors"
 	"github.com/jaxron/axonet/pkg/client/logger"
 	"github.com/sony/gobreaker"
+)
+
+var (
+	ErrCircuitOpen      = errors.New("circuit breaker is open")
+	ErrCircuitExhausted = errors.New("circuit breaker is exhausted")
 )
 
 // CircuitBreakerMiddleware implements the circuit breaker pattern to prevent cascading failures.
@@ -58,9 +64,9 @@ func (m *CircuitBreakerMiddleware) Process(ctx *context.Context) (*http.Response
 	if err != nil {
 		switch err {
 		case gobreaker.ErrOpenState:
-			return nil, fmt.Errorf("%w: %w", errors.ErrCircuitOpen, err)
+			return nil, fmt.Errorf("%w: %w", ErrCircuitOpen, err)
 		case gobreaker.ErrTooManyRequests:
-			return nil, fmt.Errorf("%w: %w", errors.ErrCircuitExhausted, err)
+			return nil, fmt.Errorf("%w: %w", ErrCircuitExhausted, err)
 		default:
 			return nil, err
 		}
@@ -69,7 +75,7 @@ func (m *CircuitBreakerMiddleware) Process(ctx *context.Context) (*http.Response
 	// Type assertion to get the response
 	resp, ok := result.(*http.Response)
 	if !ok {
-		return nil, errors.ErrUnreachable
+		return nil, clientErrors.ErrUnreachable
 	}
 
 	return resp, nil

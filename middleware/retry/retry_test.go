@@ -78,7 +78,7 @@ func TestRetryMiddleware(t *testing.T) {
 		resp, err := middleware.Process(ctx)
 		require.Error(t, err)
 		assert.Nil(t, resp)
-		assert.ErrorIs(t, err, errors.ErrRetryFailed)
+		assert.ErrorIs(t, err, retry.ErrRetryFailed)
 		assert.Equal(t, int(maxAttempts)+1, attempts) // The middleware makes one more attempt than maxAttempts
 	})
 
@@ -100,7 +100,7 @@ func TestRetryMiddleware(t *testing.T) {
 		resp, err := middleware.Process(ctx)
 		require.Error(t, err)
 		assert.Nil(t, resp)
-		assert.ErrorIs(t, err, errors.ErrRetryFailed)
+		assert.ErrorIs(t, err, retry.ErrRetryFailed)
 		assert.Equal(t, 1, attempts)
 	})
 
@@ -126,7 +126,7 @@ func TestRetryMiddleware(t *testing.T) {
 		resp, err := middleware.Process(clientCtx)
 		require.Error(t, err)
 		assert.Nil(t, resp)
-		assert.ErrorIs(t, err, errors.ErrRetryFailed)
+		assert.ErrorIs(t, err, retry.ErrRetryFailed)
 		assert.Equal(t, 2, attempts)
 	})
 }
