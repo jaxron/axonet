@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"net/url"
 	"reflect"
 
 	"github.com/jaxron/axonet/pkg/client/errors"
@@ -38,16 +37,6 @@ func NewClient(opts ...Option) *Client {
 	// Apply all provided options to customize the client
 	for _, opt := range opts {
 		opt(client)
-	}
-
-	// Set up proxy connection logging
-	if transport, ok := client.defaultHTTPClient.Transport.(*http.Transport); ok {
-		transport.OnProxyConnectResponse = func(ctx context.Context, proxyURL *url.URL, connectReq *http.Request, connectRes *http.Response) error {
-			client.Logger.WithFields(logger.String("proxy", proxyURL.Host)).Debug("Proxy connection established")
-			return nil
-		}
-	} else {
-		client.Logger.Debug("HTTP client transport is not of type *http.Transport, proxy connection logging not set up")
 	}
 
 	return client

@@ -29,7 +29,8 @@ func TestProxyMiddleware(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
 
 		handler := func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
-			transport := ctx.Value(http.DefaultTransport).(*http.Transport)
+			transport, ok := httpClient.Transport.(*http.Transport)
+			require.True(t, ok)
 			assert.NotNil(t, transport.Proxy)
 			proxyURL, err := transport.Proxy(req)
 			require.NoError(t, err)
@@ -58,7 +59,8 @@ func TestProxyMiddleware(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
 
 		handler := func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
-			transport := ctx.Value(http.DefaultTransport).(*http.Transport)
+			transport, ok := httpClient.Transport.(*http.Transport)
+			require.True(t, ok)
 			assert.NotNil(t, transport.Proxy)
 			proxyURL, err := transport.Proxy(req)
 			require.NoError(t, err)
@@ -76,7 +78,8 @@ func TestProxyMiddleware(t *testing.T) {
 
 		// Next request should use the new proxy
 		newHandler := func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
-			transport := ctx.Value(http.DefaultTransport).(*http.Transport)
+			transport, ok := httpClient.Transport.(*http.Transport)
+			require.True(t, ok)
 			assert.NotNil(t, transport.Proxy)
 			proxyURL, err := transport.Proxy(req)
 			require.NoError(t, err)
@@ -110,13 +113,20 @@ func TestProxyMiddleware(t *testing.T) {
 
 		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
 
+		originalClient := &http.Client{}
 		handler := func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
-			_, ok := ctx.Value(http.DefaultTransport).(*http.Transport)
-			assert.False(t, ok, "Expected no transport to be set when no proxies are configured")
+			// When no proxies are set, the client should remain unchanged
+			assert.Equal(t, originalClient, httpClient)
+
+			// If Transport is not nil, ensure it doesn't have a Proxy set
+			if transport, ok := httpClient.Transport.(*http.Transport); ok {
+				assert.Nil(t, transport.Proxy)
+			}
+
 			return &http.Response{StatusCode: http.StatusOK}, nil
 		}
 
-		resp, err := middleware.Process(context.Background(), &http.Client{}, req, handler)
+		resp, err := middleware.Process(context.Background(), originalClient, req, handler)
 		require.NoError(t, err)
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 	})
@@ -137,7 +147,8 @@ func TestProxyMiddlewareDisable(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
 
 		handler := func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
-			transport := ctx.Value(http.DefaultTransport).(*http.Transport)
+			transport, ok := httpClient.Transport.(*http.Transport)
+			require.True(t, ok)
 			assert.NotNil(t, transport.Proxy)
 			actualProxyURL, err := transport.Proxy(req)
 			require.NoError(t, err)
@@ -155,13 +166,20 @@ func TestProxyMiddlewareDisable(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
 		ctx := context.WithValue(context.Background(), proxy.KeySkipProxy, true)
 
+		originalClient := &http.Client{}
 		handler := func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
-			_, ok := ctx.Value(http.DefaultTransport).(*http.Transport)
-			assert.False(t, ok, "Expected no transport to be set when proxy is disabled")
+			// When proxy is disabled, the client should remain unchanged
+			assert.Equal(t, originalClient, httpClient)
+
+			// If Transport is not nil, ensure it doesn't have a Proxy set
+			if transport, ok := httpClient.Transport.(*http.Transport); ok {
+				assert.Nil(t, transport.Proxy)
+			}
+
 			return &http.Response{StatusCode: http.StatusOK}, nil
 		}
 
-		_, err := middleware.Process(ctx, &http.Client{}, req, handler)
+		_, err := middleware.Process(ctx, originalClient, req, handler)
 		require.NoError(t, err)
 	})
 }

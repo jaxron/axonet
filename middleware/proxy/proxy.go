@@ -61,26 +61,26 @@ func (m *ProxyMiddleware) Process(ctx context.Context, httpClient *http.Client, 
 
 		m.logger.WithFields(logger.String("proxy", proxy.Host)).Debug("Using Proxy")
 
-		// Clone the client to avoid modifying the original because the
-		// client is shared across requests and unsafe for concurrent use
-		clonedClient := &http.Client{
-			Transport:     httpClient.Transport,
-			CheckRedirect: httpClient.CheckRedirect,
-			Jar:           httpClient.Jar,
-			Timeout:       httpClient.Timeout,
-		}
-		*httpClient = *clonedClient
-
 		// Apply the proxy to the request
 		transport, ok := http.DefaultTransport.(*http.Transport)
 		if !ok {
 			return nil, ErrInvalidTransport
 		}
-		transportCopy := transport.Clone()
-		transportCopy.Proxy = http.ProxyURL(proxy)
+		transport = transport.Clone()
+		transport.Proxy = http.ProxyURL(proxy)
+		transport.OnProxyConnectResponse = func(ctx context.Context, proxyURL *url.URL, connectReq *http.Request, connectRes *http.Response) error {
+			m.logger.WithFields(logger.String("proxy", proxyURL.Host)).Debug("Proxy connection established")
+			return nil
+		}
 
-		// Use the modified transport for this request
-		ctx = context.WithValue(ctx, http.DefaultTransport, transportCopy)
+		// Shallow copy the client to avoid modifying the original because
+		// it's shared across requests and is unsafe for concurrent use
+		httpClient = &http.Client{
+			Transport:     transport,
+			CheckRedirect: httpClient.CheckRedirect,
+			Jar:           httpClient.Jar,
+			Timeout:       httpClient.Timeout,
+		}
 	}
 
 	return next(ctx, httpClient, req)
