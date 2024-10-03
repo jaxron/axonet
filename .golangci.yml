@@ -2,7 +2,7 @@ run:
   concurrency: 0
   allow-parallel-runners: true
   allow-serial-runners: true
-  tests: false
+  tests: true
   go: '1.23'
 
 linters:
@@ -17,7 +17,6 @@ linters:
     - wrapcheck # Not needed 
     - ireturn # Configuration is bugged
     - bodyclose # Lots of false positives
-    - paralleltest # Makes it difficult to debug integration tests
     - forcetypeassert # Not needed
     - mnd # Not needed
     - gomnd # Deprecated
@@ -41,4 +40,6 @@ linters-settings:
     min-name-length: 1
   dupl:
     threshold: 250
+  funlen:
+    lines: 150
     
