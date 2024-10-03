@@ -180,7 +180,7 @@ func (rb *Request) Do(ctx context.Context) (*http.Response, error) {
 	// Execute the request
 	resp, err := rb.client.Do(ctx, req)
 	if err != nil {
-		return nil, err
+		return resp, err
 	}
 
 	// If a result is set, unmarshal the response

@@ -89,7 +89,7 @@ func (c *Client) performRequest(ctx context.Context, httpClient *http.Client, re
 
 	// Check for non-ok status codes
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %w: %d", errors.ErrBadStatus, resp.StatusCode)
+		return resp, fmt.Errorf("unexpected status code: %w: %d", errors.ErrBadStatus, resp.StatusCode)
 	}
 
 	// Log the response details
