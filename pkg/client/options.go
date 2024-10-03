@@ -120,6 +120,13 @@ func (rb *Request) Header(key, value string) *Request {
 	return rb
 }
 
+// JSONHeaders sets both Content-Type and Accept headers to application/json.
+func (rb *Request) JSONHeaders() *Request {
+	rb.header.Set("Content-Type", "application/json")
+	rb.header.Set("Accept", "application/json")
+	return rb
+}
+
 // Build returns the final http.Request for execution.
 func (rb *Request) Build(ctx context.Context) (*http.Request, error) {
 	// Ensure only one of the body or marshalBody is set
