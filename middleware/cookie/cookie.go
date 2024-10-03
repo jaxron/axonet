@@ -1,11 +1,18 @@
 package cookie
 
 import (
+	"context"
 	"net/http"
 	"sync/atomic"
 
-	"github.com/jaxron/axonet/pkg/client/context"
 	"github.com/jaxron/axonet/pkg/client/logger"
+	"github.com/jaxron/axonet/pkg/client/middleware"
+)
+
+type contextKey int
+
+const (
+	KeySkipCookie contextKey = iota
 )
 
 // CookieMiddleware manages cookie rotation for HTTP requests.
@@ -31,12 +38,20 @@ func New(cookies [][]*http.Cookie) *CookieMiddleware {
 }
 
 // Process applies cookie logic before passing the request to the next middleware.
-func (m *CookieMiddleware) Process(ctx *context.Context) (*http.Response, error) {
+func (m *CookieMiddleware) Process(ctx context.Context, httpClient *http.Client, req *http.Request, next middleware.NextFunc) (*http.Response, error) {
+	// Check if the cookie middleware is disabled via context
+	if isDisabled, ok := ctx.Value(KeySkipCookie).(bool); ok && isDisabled {
+		m.logger.Debug("Cookie middleware disabled via context")
+		return next(ctx, httpClient, req)
+	}
+
+	m.logger.Debug("Processing request with cookie middleware")
+
 	state := m.cookies.Load().(*cookieState)
 	cookiesLen := len(state.cookies)
 
 	if cookiesLen > 0 {
-		current := m.current.Add(1) - 1            // Subtract 1 to start from 0
+		current := m.current.Add(1) - 1
 		index := int(current % uint64(cookiesLen)) // #nosec G115
 		cookies := state.cookies[index]
 
@@ -44,11 +59,11 @@ func (m *CookieMiddleware) Process(ctx *context.Context) (*http.Response, error)
 
 		// Apply the cookies to the request
 		for _, cookie := range cookies {
-			ctx.Req.AddCookie(cookie)
+			req.AddCookie(cookie)
 		}
 	}
 
-	return ctx.Next(ctx)
+	return next(ctx, httpClient, req)
 }
 
 // UpdateCookies updates the list of cookies at runtime.

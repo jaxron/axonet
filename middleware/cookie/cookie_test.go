@@ -1,19 +1,23 @@
 package cookie_test
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/jaxron/axonet/middleware/cookie"
-	clientContext "github.com/jaxron/axonet/pkg/client/context"
 	"github.com/jaxron/axonet/pkg/client/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestCookieMiddleware(t *testing.T) {
+	t.Parallel()
+
 	t.Run("Apply cookies to request", func(t *testing.T) {
+		t.Parallel()
+
 		cookies := [][]*http.Cookie{
 			{
 				&http.Cookie{Name: "session", Value: "123"},
@@ -28,17 +32,13 @@ func TestCookieMiddleware(t *testing.T) {
 		middleware := cookie.New(cookies)
 		middleware.SetLogger(logger.NewBasicLogger())
 
-		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
-		ctx := &clientContext.Context{
-			Client: &http.Client{},
-			Req:    req,
-			Next: func(ctx *clientContext.Context) (*http.Response, error) {
-				return &http.Response{StatusCode: http.StatusOK}, nil
-			},
+		handler := func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
+			return &http.Response{StatusCode: http.StatusOK}, nil
 		}
 
 		// First request
-		resp, err := middleware.Process(ctx)
+		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
+		resp, err := middleware.Process(context.Background(), &http.Client{}, req, handler)
 		require.NoError(t, err)
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -51,8 +51,7 @@ func TestCookieMiddleware(t *testing.T) {
 
 		// Second request (should use the next set of cookies)
 		req = httptest.NewRequest(http.MethodGet, "http://example.com", nil)
-		ctx.Req = req
-		resp, err = middleware.Process(ctx)
+		resp, err = middleware.Process(context.Background(), &http.Client{}, req, handler)
 		require.NoError(t, err)
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -65,6 +64,8 @@ func TestCookieMiddleware(t *testing.T) {
 	})
 
 	t.Run("Cookie rotation", func(t *testing.T) {
+		t.Parallel()
+
 		cookies := [][]*http.Cookie{
 			{&http.Cookie{Name: "session", Value: "123"}},
 			{&http.Cookie{Name: "session", Value: "456"}},
@@ -74,17 +75,13 @@ func TestCookieMiddleware(t *testing.T) {
 		middleware := cookie.New(cookies)
 		middleware.SetLogger(logger.NewBasicLogger())
 
+		handler := func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
+			return &http.Response{StatusCode: http.StatusOK}, nil
+		}
+
 		for i := 0; i < 5; i++ {
 			req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
-			ctx := &clientContext.Context{
-				Client: &http.Client{},
-				Req:    req,
-				Next: func(ctx *clientContext.Context) (*http.Response, error) {
-					return &http.Response{StatusCode: http.StatusOK}, nil
-				},
-			}
-
-			_, err := middleware.Process(ctx)
+			_, err := middleware.Process(context.Background(), &http.Client{}, req, handler)
 			require.NoError(t, err)
 
 			reqCookies := req.Cookies()
@@ -95,6 +92,8 @@ func TestCookieMiddleware(t *testing.T) {
 	})
 
 	t.Run("Update cookies at runtime", func(t *testing.T) {
+		t.Parallel()
+
 		initialCookies := [][]*http.Cookie{
 			{&http.Cookie{Name: "session", Value: "initial"}},
 		}
@@ -102,17 +101,13 @@ func TestCookieMiddleware(t *testing.T) {
 		middleware := cookie.New(initialCookies)
 		middleware.SetLogger(logger.NewBasicLogger())
 
-		// Initial request
-		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
-		ctx := &clientContext.Context{
-			Client: &http.Client{},
-			Req:    req,
-			Next: func(ctx *clientContext.Context) (*http.Response, error) {
-				return &http.Response{StatusCode: http.StatusOK}, nil
-			},
+		handler := func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
+			return &http.Response{StatusCode: http.StatusOK}, nil
 		}
 
-		_, err := middleware.Process(ctx)
+		// Initial request
+		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
+		_, err := middleware.Process(context.Background(), &http.Client{}, req, handler)
 		require.NoError(t, err)
 		assert.Equal(t, "initial", req.Cookies()[0].Value)
 
@@ -124,13 +119,14 @@ func TestCookieMiddleware(t *testing.T) {
 
 		// Next request should use updated cookies
 		req = httptest.NewRequest(http.MethodGet, "http://example.com", nil)
-		ctx.Req = req
-		_, err = middleware.Process(ctx)
+		_, err = middleware.Process(context.Background(), &http.Client{}, req, handler)
 		require.NoError(t, err)
 		assert.Equal(t, "updated", req.Cookies()[0].Value)
 	})
 
 	t.Run("GetCookieCount", func(t *testing.T) {
+		t.Parallel()
+
 		cookies := [][]*http.Cookie{
 			{&http.Cookie{Name: "session", Value: "123"}},
 			{&http.Cookie{Name: "session", Value: "456"}},
@@ -149,21 +145,63 @@ func TestCookieMiddleware(t *testing.T) {
 	})
 
 	t.Run("No cookies", func(t *testing.T) {
+		t.Parallel()
+
 		middleware := cookie.New(nil)
 		middleware.SetLogger(logger.NewBasicLogger())
 
-		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
-		ctx := &clientContext.Context{
-			Client: &http.Client{},
-			Req:    req,
-			Next: func(ctx *clientContext.Context) (*http.Response, error) {
-				return &http.Response{StatusCode: http.StatusOK}, nil
-			},
+		handler := func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
+			return &http.Response{StatusCode: http.StatusOK}, nil
 		}
 
-		resp, err := middleware.Process(ctx)
+		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
+		resp, err := middleware.Process(context.Background(), &http.Client{}, req, handler)
 		require.NoError(t, err)
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 		assert.Empty(t, req.Cookies())
+	})
+}
+
+func TestCookieMiddlewareDisable(t *testing.T) {
+	t.Parallel()
+
+	cookies := [][]*http.Cookie{
+		{&http.Cookie{Name: "session", Value: "123"}},
+	}
+
+	middleware := cookie.New(cookies)
+	middleware.SetLogger(logger.NewBasicLogger())
+
+	t.Run("Middleware enabled (default)", func(t *testing.T) {
+		t.Parallel()
+
+		handler := func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
+			return &http.Response{StatusCode: http.StatusOK}, nil
+		}
+
+		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
+		_, err := middleware.Process(context.Background(), &http.Client{}, req, handler)
+		require.NoError(t, err)
+
+		reqCookies := req.Cookies()
+		assert.Len(t, reqCookies, 1)
+		assert.Equal(t, "session", reqCookies[0].Name)
+		assert.Equal(t, "123", reqCookies[0].Value)
+	})
+
+	t.Run("Middleware disabled via context", func(t *testing.T) {
+		t.Parallel()
+
+		handler := func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
+			return &http.Response{StatusCode: http.StatusOK}, nil
+		}
+
+		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
+		ctx := context.WithValue(context.Background(), cookie.KeySkipCookie, true)
+		_, err := middleware.Process(ctx, &http.Client{}, req, handler)
+		require.NoError(t, err)
+
+		reqCookies := req.Cookies()
+		assert.Len(t, reqCookies, 0, "Expected no cookies when middleware is disabled")
 	})
 }

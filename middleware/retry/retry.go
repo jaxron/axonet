@@ -1,15 +1,16 @@
 package retry
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
-	"github.com/jaxron/axonet/pkg/client/context"
 	clientErrors "github.com/jaxron/axonet/pkg/client/errors"
 	"github.com/jaxron/axonet/pkg/client/logger"
+	"github.com/jaxron/axonet/pkg/client/middleware"
 )
 
 var ErrRetryFailed = errors.New("retry failed")
@@ -33,7 +34,7 @@ func New(maxAttempts uint64, initialInterval, maxInterval time.Duration) *RetryM
 }
 
 // Process applies retry logic before passing the request to the next middleware.
-func (m *RetryMiddleware) Process(ctx *context.Context) (*http.Response, error) {
+func (m *RetryMiddleware) Process(ctx context.Context, httpClient *http.Client, req *http.Request, next middleware.NextFunc) (*http.Response, error) {
 	m.logger.Debug("Processing request with retry middleware")
 
 	// Create an exponential backoff strategy with a maximum number of retries
@@ -41,7 +42,7 @@ func (m *RetryMiddleware) Process(ctx *context.Context) (*http.Response, error) 
 		backoff.WithInitialInterval(m.initialInterval),
 		backoff.WithMaxInterval(m.maxInterval),
 	), m.maxAttempts)
-	backoffStrategy := backoff.WithContext(expBackoff, ctx.Req.Context())
+	backoffStrategy := backoff.WithContext(expBackoff, ctx)
 
 	var resp *http.Response
 	var err error
@@ -49,7 +50,7 @@ func (m *RetryMiddleware) Process(ctx *context.Context) (*http.Response, error) 
 	// Retry the request using the backoff strategy
 	retryErr := backoff.RetryNotify(
 		func() error {
-			resp, err = ctx.Next(ctx)
+			resp, err = next(ctx, httpClient, req)
 			return m.handleRetryError(err)
 		},
 		backoffStrategy,

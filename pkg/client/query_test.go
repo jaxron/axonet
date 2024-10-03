@@ -8,7 +8,11 @@ import (
 )
 
 func TestQuery(t *testing.T) {
+	t.Parallel()
+
 	t.Run("Get", func(t *testing.T) {
+		t.Parallel()
+
 		q := client.Query{
 			"foo": []string{"bar"},
 			"baz": []string{"qux", "quux"},
@@ -20,6 +24,8 @@ func TestQuery(t *testing.T) {
 	})
 
 	t.Run("Set", func(t *testing.T) {
+		t.Parallel()
+
 		q := client.Query{}
 
 		q.Set("foo", "bar")
@@ -34,6 +40,8 @@ func TestQuery(t *testing.T) {
 	})
 
 	t.Run("Add", func(t *testing.T) {
+		t.Parallel()
+
 		q := client.Query{}
 
 		q.Add("foo", "bar")
@@ -48,6 +56,8 @@ func TestQuery(t *testing.T) {
 	})
 
 	t.Run("Encode", func(t *testing.T) {
+		t.Parallel()
+
 		q := client.Query{
 			"foo":     []string{"bar"},
 			"baz":     []string{"qux", "quux"},
@@ -69,6 +79,8 @@ func TestQuery(t *testing.T) {
 	})
 
 	t.Run("Encode empty query", func(t *testing.T) {
+		t.Parallel()
+
 		q := client.Query{}
 		assert.Equal(t, "", q.Encode())
 	})

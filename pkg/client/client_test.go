@@ -26,11 +26,15 @@ func NewTestClient(opts ...client.Option) *client.Client {
 }
 
 func TestClientDo(t *testing.T) {
+	t.Parallel()
+
 	t.Run("Successful request", func(t *testing.T) {
+		t.Parallel()
+
 		mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 			_, err := w.Write([]byte(`{"message": "success"}`))
-			require.NoError(t, err)
+			assert.NoError(t, err)
 		}))
 		defer mockServer.Close()
 
@@ -55,17 +59,19 @@ func TestClientDo(t *testing.T) {
 	})
 
 	t.Run("Successful request with MarshalBody", func(t *testing.T) {
+		t.Parallel()
+
 		mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			body, err := io.ReadAll(r.Body)
-			require.NoError(t, err)
+			assert.NoError(t, err)
 			var receivedData map[string]string
 			err = json.Unmarshal(body, &receivedData)
-			require.NoError(t, err)
+			assert.NoError(t, err)
 			assert.Equal(t, "test", receivedData["key"])
 
 			w.WriteHeader(http.StatusOK)
 			_, err = w.Write([]byte(`{"message": "success"}`))
-			require.NoError(t, err)
+			assert.NoError(t, err)
 		}))
 		defer mockServer.Close()
 
@@ -89,14 +95,16 @@ func TestClientDo(t *testing.T) {
 	})
 
 	t.Run("Custom marshal and unmarshal functions", func(t *testing.T) {
+		t.Parallel()
+
 		mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			body, err := io.ReadAll(r.Body)
-			require.NoError(t, err)
+			assert.NoError(t, err)
 			assert.Equal(t, "CUSTOM:test", string(body))
 
 			w.WriteHeader(http.StatusOK)
 			_, err = w.Write([]byte(`CUSTOM:{"message":"success"}`))
-			require.NoError(t, err)
+			assert.NoError(t, err)
 		}))
 		defer mockServer.Close()
 
@@ -127,6 +135,8 @@ func TestClientDo(t *testing.T) {
 	})
 
 	t.Run("Error when both Body and MarshalBody are set", func(t *testing.T) {
+		t.Parallel()
+
 		_, err := NewTestClient().
 			NewRequest().
 			Method(http.MethodPost).
@@ -140,6 +150,8 @@ func TestClientDo(t *testing.T) {
 	})
 
 	t.Run("Context cancellation", func(t *testing.T) {
+		t.Parallel()
+
 		mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			time.Sleep(200 * time.Millisecond)
 			w.WriteHeader(http.StatusOK)
@@ -161,11 +173,15 @@ func TestClientDo(t *testing.T) {
 }
 
 func TestClientDoUnmarshal(t *testing.T) {
+	t.Parallel()
+
 	t.Run("Successful unmarshal", func(t *testing.T) {
+		t.Parallel()
+
 		mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 			_, err := w.Write([]byte(`{"message": "success", "code": 200}`))
-			require.NoError(t, err)
+			assert.NoError(t, err)
 		}))
 		defer mockServer.Close()
 
@@ -189,10 +205,12 @@ func TestClientDoUnmarshal(t *testing.T) {
 	})
 
 	t.Run("Unmarshal error", func(t *testing.T) {
+		t.Parallel()
+
 		mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 			_, err := w.Write([]byte(`{"message": "success", "code": "not a number"}`))
-			require.NoError(t, err)
+			assert.NoError(t, err)
 		}))
 		defer mockServer.Close()
 

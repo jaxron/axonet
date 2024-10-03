@@ -1,14 +1,15 @@
 package circuitbreaker
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
 	"time"
 
-	"github.com/jaxron/axonet/pkg/client/context"
 	clientErrors "github.com/jaxron/axonet/pkg/client/errors"
 	"github.com/jaxron/axonet/pkg/client/logger"
+	"github.com/jaxron/axonet/pkg/client/middleware"
 	"github.com/sony/gobreaker"
 )
 
@@ -54,12 +55,12 @@ func New(maxRequests uint32, interval, timeout time.Duration) *CircuitBreakerMid
 }
 
 // Process applies the circuit breaker before passing the request to the next middleware.
-func (m *CircuitBreakerMiddleware) Process(ctx *context.Context) (*http.Response, error) {
+func (m *CircuitBreakerMiddleware) Process(ctx context.Context, httpClient *http.Client, req *http.Request, next middleware.NextFunc) (*http.Response, error) {
 	m.logger.Debug("Processing request with circuit breaker middleware")
 
 	// Execute the request with the circuit breaker
 	result, err := m.breaker.Execute(func() (interface{}, error) {
-		return ctx.Next(ctx)
+		return next(ctx, httpClient, req)
 	})
 	if err != nil {
 		switch err {

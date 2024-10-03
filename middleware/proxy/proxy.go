@@ -1,16 +1,23 @@
 package proxy
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/url"
 	"sync/atomic"
 
-	"github.com/jaxron/axonet/pkg/client/context"
 	"github.com/jaxron/axonet/pkg/client/logger"
+	"github.com/jaxron/axonet/pkg/client/middleware"
 )
 
 var ErrInvalidTransport = errors.New("invalid transport")
+
+type contextKey int
+
+const (
+	KeySkipProxy contextKey = iota
+)
 
 // ProxyMiddleware manages proxy rotation for HTTP requests.
 type ProxyMiddleware struct {
@@ -35,36 +42,48 @@ func New(proxies []*url.URL) *ProxyMiddleware {
 }
 
 // Process applies proxy logic before passing the request to the next middleware.
-func (m *ProxyMiddleware) Process(ctx *context.Context) (*http.Response, error) {
+func (m *ProxyMiddleware) Process(ctx context.Context, httpClient *http.Client, req *http.Request, next middleware.NextFunc) (*http.Response, error) {
+	// Check if the proxy should be skipped for this request
+	if skipProxy, ok := ctx.Value(KeySkipProxy).(bool); ok && skipProxy {
+		m.logger.Debug("Skipping proxy for this request")
+		return next(ctx, httpClient, req)
+	}
+
+	m.logger.Debug("Processing request with proxy middleware")
+
 	state := m.proxies.Load().(*proxyState)
 	proxyLen := len(state.proxies)
 
 	if proxyLen > 0 {
-		current := m.current.Add(1) - 1          // Subtract 1 to start from 0
+		current := m.current.Add(1) - 1
 		index := int(current % uint64(proxyLen)) // #nosec G115
 		proxy := state.proxies[index]
 
 		m.logger.WithFields(logger.String("proxy", proxy.Host)).Debug("Using Proxy")
 
-		// Clone the client to avoid modifying the original
+		// Clone the client to avoid modifying the original because the
+		// client is shared across requests and unsafe for concurrent use
 		clonedClient := &http.Client{
-			Transport:     ctx.Client.Transport,
-			CheckRedirect: ctx.Client.CheckRedirect,
-			Jar:           ctx.Client.Jar,
-			Timeout:       ctx.Client.Timeout,
+			Transport:     httpClient.Transport,
+			CheckRedirect: httpClient.CheckRedirect,
+			Jar:           httpClient.Jar,
+			Timeout:       httpClient.Timeout,
 		}
-		ctx.Client = clonedClient
+		*httpClient = *clonedClient
 
 		// Apply the proxy to the request
-		transport, ok := ctx.Client.Transport.(*http.Transport)
+		transport, ok := http.DefaultTransport.(*http.Transport)
 		if !ok {
 			return nil, ErrInvalidTransport
 		}
-		transport.Proxy = http.ProxyURL(proxy)
-		ctx.Client.Transport = transport
+		transportCopy := transport.Clone()
+		transportCopy.Proxy = http.ProxyURL(proxy)
+
+		// Use the modified transport for this request
+		ctx = context.WithValue(ctx, http.DefaultTransport, transportCopy)
 	}
 
-	return ctx.Next(ctx)
+	return next(ctx, httpClient, req)
 }
 
 // UpdateProxies updates the list of proxies at runtime.

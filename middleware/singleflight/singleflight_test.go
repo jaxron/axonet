@@ -1,6 +1,7 @@
 package singleflight_test
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -10,7 +11,6 @@ import (
 	"time"
 
 	"github.com/jaxron/axonet/middleware/singleflight"
-	clientContext "github.com/jaxron/axonet/pkg/client/context"
 	"github.com/jaxron/axonet/pkg/client/errors"
 	"github.com/jaxron/axonet/pkg/client/logger"
 	"github.com/stretchr/testify/assert"
@@ -18,14 +18,18 @@ import (
 )
 
 func TestSingleFlightMiddleware(t *testing.T) {
+	t.Parallel()
+
 	t.Run("Deduplicate concurrent identical requests", func(t *testing.T) {
+		t.Parallel()
+
 		middleware := singleflight.New()
 		middleware.SetLogger(logger.NewBasicLogger())
 
 		requestCount := 0
 		var mu sync.Mutex
 
-		handler := func(ctx *clientContext.Context) (*http.Response, error) {
+		handler := func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
 			mu.Lock()
 			requestCount++
 			mu.Unlock()
@@ -35,12 +39,7 @@ func TestSingleFlightMiddleware(t *testing.T) {
 
 		makeRequest := func() (*http.Response, error) {
 			req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
-			ctx := &clientContext.Context{
-				Client: &http.Client{},
-				Req:    req,
-				Next:   handler,
-			}
-			return middleware.Process(ctx)
+			return middleware.Process(context.Background(), &http.Client{}, req, handler)
 		}
 
 		var wg sync.WaitGroup
@@ -59,13 +58,15 @@ func TestSingleFlightMiddleware(t *testing.T) {
 	})
 
 	t.Run("Different requests are not deduplicated", func(t *testing.T) {
+		t.Parallel()
+
 		middleware := singleflight.New()
 		middleware.SetLogger(logger.NewBasicLogger())
 
 		requestCount := 0
 		var mu sync.Mutex
 
-		handler := func(ctx *clientContext.Context) (*http.Response, error) {
+		handler := func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
 			mu.Lock()
 			requestCount++
 			mu.Unlock()
@@ -75,12 +76,7 @@ func TestSingleFlightMiddleware(t *testing.T) {
 
 		makeRequest := func(url string) (*http.Response, error) {
 			req := httptest.NewRequest(http.MethodGet, url, nil)
-			ctx := &clientContext.Context{
-				Client: &http.Client{},
-				Req:    req,
-				Next:   handler,
-			}
-			return middleware.Process(ctx)
+			return middleware.Process(context.Background(), &http.Client{}, req, handler)
 		}
 
 		var wg sync.WaitGroup
@@ -100,13 +96,15 @@ func TestSingleFlightMiddleware(t *testing.T) {
 	})
 
 	t.Run("Requests with different bodies are not deduplicated", func(t *testing.T) {
+		t.Parallel()
+
 		middleware := singleflight.New()
 		middleware.SetLogger(logger.NewBasicLogger())
 
 		requestCount := 0
 		var mu sync.Mutex
 
-		handler := func(ctx *clientContext.Context) (*http.Response, error) {
+		handler := func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
 			mu.Lock()
 			requestCount++
 			mu.Unlock()
@@ -116,12 +114,7 @@ func TestSingleFlightMiddleware(t *testing.T) {
 
 		makeRequest := func(body string) (*http.Response, error) {
 			req := httptest.NewRequest(http.MethodPost, "http://example.com", strings.NewReader(body))
-			ctx := &clientContext.Context{
-				Client: &http.Client{},
-				Req:    req,
-				Next:   handler,
-			}
-			return middleware.Process(ctx)
+			return middleware.Process(context.Background(), &http.Client{}, req, handler)
 		}
 
 		var wg sync.WaitGroup
@@ -141,21 +134,17 @@ func TestSingleFlightMiddleware(t *testing.T) {
 	})
 
 	t.Run("Error handling", func(t *testing.T) {
+		t.Parallel()
+
 		middleware := singleflight.New()
 		middleware.SetLogger(logger.NewBasicLogger())
 
-		handler := func(ctx *clientContext.Context) (*http.Response, error) {
+		handler := func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
 			return nil, errors.ErrNetwork
 		}
 
 		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
-		ctx := &clientContext.Context{
-			Client: &http.Client{},
-			Req:    req,
-			Next:   handler,
-		}
-
-		resp, err := middleware.Process(ctx)
+		resp, err := middleware.Process(context.Background(), &http.Client{}, req, handler)
 		require.Error(t, err)
 		assert.Nil(t, resp)
 		assert.ErrorIs(t, err, singleflight.ErrRequestFailed)
@@ -163,12 +152,14 @@ func TestSingleFlightMiddleware(t *testing.T) {
 	})
 
 	t.Run("Request body can be read after key generation", func(t *testing.T) {
+		t.Parallel()
+
 		middleware := singleflight.New()
 		middleware.SetLogger(logger.NewBasicLogger())
 
 		body := "test body"
-		handler := func(ctx *clientContext.Context) (*http.Response, error) {
-			bodyBytes, err := io.ReadAll(ctx.Req.Body)
+		handler := func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
+			bodyBytes, err := io.ReadAll(req.Body)
 			if err != nil {
 				return nil, err
 			}
@@ -177,13 +168,7 @@ func TestSingleFlightMiddleware(t *testing.T) {
 		}
 
 		req := httptest.NewRequest(http.MethodPost, "http://example.com", strings.NewReader(body))
-		ctx := &clientContext.Context{
-			Client: &http.Client{},
-			Req:    req,
-			Next:   handler,
-		}
-
-		resp, err := middleware.Process(ctx)
+		resp, err := middleware.Process(context.Background(), &http.Client{}, req, handler)
 		require.NoError(t, err)
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 	})

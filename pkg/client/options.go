@@ -10,13 +10,14 @@ import (
 
 	"github.com/jaxron/axonet/pkg/client/errors"
 	"github.com/jaxron/axonet/pkg/client/logger"
+	"github.com/jaxron/axonet/pkg/client/middleware"
 )
 
 // Option is a function type that modifies the Client configuration.
 type Option func(*Client)
 
-// WithMiddleware adds or updates the middleware for the.
-func WithMiddleware(middleware Middleware) Option {
+// WithMiddleware adds or updates the middleware for the Client.
+func WithMiddleware(middleware middleware.Middleware) Option {
 	return func(c *Client) {
 		c.updateMiddleware(middleware)
 	}
@@ -119,7 +120,7 @@ func (rb *Request) Header(key, value string) *Request {
 	return rb
 }
 
-// Build returns the final Request for execution.
+// Build returns the final http.Request for execution.
 func (rb *Request) Build(ctx context.Context) (*http.Request, error) {
 	// Ensure only one of the body or marshalBody is set
 	if rb.body != nil && rb.marshalBody != nil {
@@ -170,7 +171,7 @@ func (rb *Request) Do(ctx context.Context) (*http.Response, error) {
 	}
 
 	// Execute the request
-	resp, err := rb.client.Do(req)
+	resp, err := rb.client.Do(ctx, req)
 	if err != nil {
 		return nil, err
 	}

@@ -2,6 +2,7 @@ package singleflight
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -9,9 +10,9 @@ import (
 	"strconv"
 
 	"github.com/cespare/xxhash"
-	"github.com/jaxron/axonet/pkg/client/context"
 	clientErrors "github.com/jaxron/axonet/pkg/client/errors"
 	"github.com/jaxron/axonet/pkg/client/logger"
+	"github.com/jaxron/axonet/pkg/client/middleware"
 	"golang.org/x/sync/singleflight"
 )
 
@@ -35,18 +36,18 @@ func New() *SingleFlightMiddleware {
 }
 
 // Process applies the singleflight pattern before passing the request to the next middleware.
-func (m *SingleFlightMiddleware) Process(ctx *context.Context) (*http.Response, error) {
+func (m *SingleFlightMiddleware) Process(ctx context.Context, httpClient *http.Client, req *http.Request, next middleware.NextFunc) (*http.Response, error) {
 	m.logger.Debug("Processing request with singleflight middleware")
 
 	// Generate a unique key for the request
-	key, err := m.generateRequestKey(ctx.Req)
+	key, err := m.generateRequestKey(req)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrKeyGeneration, err)
 	}
 
 	// Use singleflight to execute the request
 	result, err, _ := m.sfGroup.Do(key, func() (interface{}, error) {
-		return ctx.Next(ctx)
+		return next(ctx, httpClient, req)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrRequestFailed, err)
