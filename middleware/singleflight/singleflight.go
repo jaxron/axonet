@@ -19,6 +19,10 @@ import (
 var (
 	ErrKeyGeneration = errors.New("failed to generate request key")
 	ErrRequestFailed = errors.New("request failed")
+	ErrHashMethod    = errors.New("failed to hash method and URL")
+	ErrHashHeader    = errors.New("failed to hash header")
+	ErrReadBody      = errors.New("failed to read request body")
+	ErrHashBody      = errors.New("failed to hash body")
 )
 
 // SingleFlightMiddleware implements the singleflight pattern to deduplicate concurrent identical requests.
@@ -74,14 +78,14 @@ func (m *SingleFlightMiddleware) generateRequestKey(req *http.Request) (string, 
 
 	// Hash method and URL
 	if err := writeHash(req.Method + req.URL.String()); err != nil {
-		return "", fmt.Errorf("failed to hash method and URL: %w", err)
+		return "", fmt.Errorf("%w: %w", ErrHashMethod, err)
 	}
 
 	// Hash headers (excluding Authorization)
 	for key, values := range req.Header {
 		if key != "Authorization" {
 			if err := writeHash(key + fmt.Sprint(values)); err != nil {
-				return "", fmt.Errorf("failed to hash header: %w", err)
+				return "", fmt.Errorf("%w: %w", ErrHashHeader, err)
 			}
 		}
 	}
@@ -90,10 +94,10 @@ func (m *SingleFlightMiddleware) generateRequestKey(req *http.Request) (string, 
 	if req.Body != nil {
 		body, err := io.ReadAll(req.Body)
 		if err != nil {
-			return "", fmt.Errorf("failed to read request body: %w", err)
+			return "", fmt.Errorf("%w: %w", ErrReadBody, err)
 		}
 		if _, err := h.Write(body); err != nil {
-			return "", fmt.Errorf("failed to hash body: %w", err)
+			return "", fmt.Errorf("%w: %w", ErrHashBody, err)
 		}
 		req.Body = io.NopCloser(bytes.NewReader(body))
 	}
