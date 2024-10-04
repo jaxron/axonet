@@ -32,7 +32,7 @@ func (m *RateLimiterMiddleware) Process(ctx context.Context, httpClient *http.Cl
 	m.logger.Debug("Processing request with rate limiter middleware")
 
 	// Wait for rate limiter permission
-	if err := m.limiter.Wait(req.Context()); err != nil {
+	if err := m.limiter.Wait(ctx); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrRateLimitExceeded, err)
 	}
 
