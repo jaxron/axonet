@@ -70,22 +70,24 @@ func (m *SingleFlightMiddleware) Process(ctx context.Context, httpClient *http.C
 func (m *SingleFlightMiddleware) generateRequestKey(req *http.Request) (string, error) {
 	h := xxhash.New()
 
-	// Helper function to write to hash and check error
-	writeHash := func(s string) error {
-		_, err := io.WriteString(h, s)
-		return err
+	// Helper function to write to hash and handle errors
+	writeToHash := func(data []byte, errType error) error {
+		if _, err := h.Write(data); err != nil {
+			return fmt.Errorf("%w: %w", errType, err)
+		}
+		return nil
 	}
 
 	// Hash method and URL
-	if err := writeHash(req.Method + req.URL.String()); err != nil {
-		return "", fmt.Errorf("%w: %w", ErrHashMethod, err)
+	if err := writeToHash([]byte(req.Method+req.URL.String()), ErrHashMethod); err != nil {
+		return "", fmt.Errorf("%w: %w", ErrKeyGeneration, err)
 	}
 
 	// Hash headers (excluding Authorization)
 	for key, values := range req.Header {
 		if key != "Authorization" {
-			if err := writeHash(key + fmt.Sprint(values)); err != nil {
-				return "", fmt.Errorf("%w: %w", ErrHashHeader, err)
+			if err := writeToHash([]byte(key+fmt.Sprint(values)), ErrHashHeader); err != nil {
+				return "", fmt.Errorf("%w: %w", ErrKeyGeneration, err)
 			}
 		}
 	}
@@ -94,10 +96,10 @@ func (m *SingleFlightMiddleware) generateRequestKey(req *http.Request) (string, 
 	if req.Body != nil {
 		body, err := io.ReadAll(req.Body)
 		if err != nil {
-			return "", fmt.Errorf("%w: %w", ErrReadBody, err)
+			return "", fmt.Errorf("%w: %w", ErrKeyGeneration, err)
 		}
-		if _, err := h.Write(body); err != nil {
-			return "", fmt.Errorf("%w: %w", ErrHashBody, err)
+		if err := writeToHash(body, ErrHashBody); err != nil {
+			return "", fmt.Errorf("%w: %w", ErrKeyGeneration, err)
 		}
 		req.Body = io.NopCloser(bytes.NewReader(body))
 	}
