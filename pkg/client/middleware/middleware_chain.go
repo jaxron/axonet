@@ -103,14 +103,14 @@ func (c *Chain) performRequest(ctx context.Context, httpClient *http.Client, req
 	resp, err := httpClient.Do(req.WithContext(ctx))
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			return nil, fmt.Errorf("request timed out: %w: %w", errors.ErrTimeout, err)
+			return nil, fmt.Errorf("%w: %w", errors.ErrTimeout, err)
 		}
-		return nil, fmt.Errorf("network error occurred: %w: %w", errors.ErrNetwork, err)
+		return nil, fmt.Errorf("%w: %w", errors.ErrNetwork, err)
 	}
 
 	// Check for non-ok status codes
 	if resp.StatusCode != http.StatusOK {
-		return resp, fmt.Errorf("unexpected status code: %w: %d", errors.ErrBadStatus, resp.StatusCode)
+		return resp, fmt.Errorf("%w: %d", errors.ErrBadStatus, resp.StatusCode)
 	}
 
 	// Log the response details
