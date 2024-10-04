@@ -19,14 +19,14 @@ type Option func(*Client)
 // WithMiddleware adds or updates the middleware for the Client.
 func WithMiddleware(middleware middleware.Middleware) Option {
 	return func(c *Client) {
-		c.updateMiddleware(middleware)
+		c.middlewareChain.Then(middleware)
 	}
 }
 
 // WithLogger sets the logger for the Client and its middleware.
 func WithLogger(logger logger.Logger) Option {
 	return func(c *Client) {
-		c.SetLogger(logger)
+		c.middlewareChain.SetLogger(logger)
 	}
 }
 
