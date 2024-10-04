@@ -18,7 +18,6 @@ import (
 
 var (
 	ErrKeyGeneration = errors.New("failed to generate request key")
-	ErrRequestFailed = errors.New("request failed")
 	ErrHashMethod    = errors.New("failed to hash method and URL")
 	ErrHashHeader    = errors.New("failed to hash header")
 	ErrReadBody      = errors.New("failed to read request body")
@@ -54,7 +53,7 @@ func (m *SingleFlightMiddleware) Process(ctx context.Context, httpClient *http.C
 		return next(ctx, httpClient, req)
 	})
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrRequestFailed, err)
+		return nil, err
 	}
 
 	// Type assertion to get the response

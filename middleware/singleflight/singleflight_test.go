@@ -147,7 +147,6 @@ func TestSingleFlightMiddleware(t *testing.T) {
 		resp, err := middleware.Process(context.Background(), &http.Client{}, req, handler)
 		require.Error(t, err)
 		assert.Nil(t, resp)
-		assert.ErrorIs(t, err, singleflight.ErrRequestFailed)
 		assert.ErrorIs(t, err, errors.ErrNetwork)
 	})
 
