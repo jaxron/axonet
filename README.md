@@ -27,44 +27,61 @@
 
 - [🚀 Features](#-features)
 - [📦 Installation](#-installation)
+- [🧩 Middlewares](#-middlewares)
 - [🚀 Usage](#-usage)
 - [🛠 Configuration](#-configuration)
 - [🤝 Contributing](#-contributing)
 - [📄 License](#-license)
+- [❓ FAQ](#-faq)
 
 # 🚀 Features
 
 Axonet offers features that prioritize flexibility and reliability. Key features include:
 
-- **Custom Client**
+- **Enhanced HTTP Client**
+  - Built on top of Go's standard `http.Client` for reliability and familiarity.
   - Make requests to any website using built-in middlewares.
   - Extend the middlewares to suit your needs.
-  - Simple request construction using builders
+  - Simple request construction using builders.
 - **Built-in Middlewares:**
-  - [Circuit breaker](https://learn.microsoft.com/en-us/azure/architecture/patterns/circuit-breaker) for fault tolerance.
-  - [Retry mechanism](https://learn.microsoft.com/en-us/azure/architecture/patterns/retry) with exponential backoff.
-  - [Rate limiting](https://learn.microsoft.com/en-us/azure/architecture/patterns/rate-limiting-pattern) to prevent API throttling.
-  - [Single flight](https://pkg.go.dev/golang.org/x/sync/singleflight) to deduplicate concurrent requests.
+  - Circuit breaker for fault tolerance.
+  - Retry mechanism with exponential backoff.
+  - Rate limiting to prevent API throttling.
+  - Single flight to deduplicate concurrent requests.
   - Dynamic proxy rotation for distributed traffic.
   - Cookie-based authentication with rotation.
-  - Custom header support for default headers.
+  - [And more!](#available-middlewares)
 - **Easy to Troubleshoot:**
   - Configurable loggers for debugging
   - Detailed error types with root cause
 
 # 📦 Installation
 
-## Installing Main Client
-
 To install the main client package, use the following command:
 
 ```bash
-go get github.com/jaxron/axonet/pkg/client
+go get github.com/jaxron/axonet
 ```
+
+# 🧩 Middlewares
+
+Axonet provides a variety of middlewares to augment your HTTP client's functionality. You have the flexibility to selectively install and utilize only the middlewares that are essential for your project. If you require capabilities beyond the provided options, you can create custom middleware and integrate it seamlessly using the `WithMiddleware(middleware Middleware)` client option.
+
+## Available Middlewares
+
+| Middleware      | Description                                                                                                                                   | Source                                                                         |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Circuit Breaker | Implements fault tolerance using the [circuit breaker](https://learn.microsoft.com/en-us/azure/architecture/patterns/circuit-breaker) pattern | [Source](https://github.com/jaxron/axonet/tree/main/middleware/circuitbreaker) |
+| Cookie          | Manages cookie-based authentication with rotation                                                                                             | [Source](https://github.com/jaxron/axonet/tree/main/middleware/cookie)         |
+| Header          | Adds custom headers to requests                                                                                                               | [Source](https://github.com/jaxron/axonet/tree/main/middleware/header)         |
+| Proxy           | Enables dynamic proxy rotation for distributed traffic                                                                                        | [Source](https://github.com/jaxron/axonet/tree/main/middleware/proxy)          |
+| Rate Limit      | Implements [rate limiting](https://learn.microsoft.com/en-us/azure/architecture/patterns/rate-limiting-pattern) to prevent API throttling     | [Source](https://github.com/jaxron/axonet/tree/main/middleware/ratelimit)      |
+| Retry           | Provides [retry mechanism](https://learn.microsoft.com/en-us/azure/architecture/patterns/retry) with exponential backoff                      | [Source](https://github.com/jaxron/axonet/tree/main/middleware/retry)          |
+| Single Flight   | Deduplicates concurrent identical requests                                                                                                    | [Source](https://github.com/jaxron/axonet/tree/main/middleware/singleflight)   |
 
 ## Installing Middlewares
 
-Axonet's middlewares are designed to be modular. You can install only the middlewares you need for your project. To install a specific middleware, use the following command pattern:
+To install a specific middleware, use the following command pattern:
 
 ```bash
 go get github.com/jaxron/axonet/middleware/{middleware_name}
@@ -76,18 +93,6 @@ For example, to install the retry middleware:
 go get github.com/jaxron/axonet/middleware/retry
 ```
 
-Available middlewares:
-
-- circuitbreaker
-- cookie
-- header
-- proxy
-- ratelimit
-- retry
-- singleflight
-
-Install only the middlewares you plan to use in your project to keep your dependencies minimal.
-
 # 🚀 Usage
 
 Here's a basic example of how to use the client:
@@ -95,7 +100,7 @@ Here's a basic example of how to use the client:
 First, install the necessary packages:
 
 ```bash
-go get github.com/jaxron/axonet/pkg/client
+go get github.com/jaxron/axonet
 go get github.com/jaxron/axonet/middleware/retry
 go get github.com/jaxron/axonet/middleware/singleflight
 ```
@@ -144,19 +149,7 @@ func main() {
 
 ## Client Configuration
 
-The client can be configured with various middlewares when using the `NewClient` function. First, install the desired middleware packages:
-
-```bash
-go get github.com/jaxron/axonet/middleware/circuitbreaker
-go get github.com/jaxron/axonet/middleware/cookie
-go get github.com/jaxron/axonet/middleware/header
-go get github.com/jaxron/axonet/middleware/proxy
-go get github.com/jaxron/axonet/middleware/ratelimit
-go get github.com/jaxron/axonet/middleware/retry
-go get github.com/jaxron/axonet/middleware/singleflight
-```
-
-Then, configure the client:
+You can configure the client with various middlewares when using the `NewClient` function. Here's an example of how to configure multiple middlewares:
 
 ```go
 import (
@@ -171,7 +164,7 @@ import (
 )
 
 c := client.NewClient(
-  client.WithMiddleware(circuitbreaker.New(5, 10*time.Second, 30*time.Second)),
+    client.WithMiddleware(circuitbreaker.New(5, 10*time.Second, 30*time.Second)),
     client.WithMiddleware(cookie.New([][]*http.Cookie{cookies1, cookies2})),
     client.WithMiddleware(header.New(http.Header{"User-Agent": {"MyApp/1.0"}})),
     client.WithMiddleware(proxy.New([]*url.URL{proxyURL1, proxyURL2})),
@@ -181,8 +174,6 @@ c := client.NewClient(
     client.WithLogger(logger.NewBasicLogger()),
 )
 ```
-
-You can add or remove middlewares as needed for your specific use case. You can also add custom middleware using the `WithMiddleware(middleware Middleware)` option if you need to extend the functionality beyond what is provided.
 
 ## Request Configuration
 
@@ -203,9 +194,9 @@ resp, err := c.NewRequest().
     Method(http.MethodPost).
     URL("https://api.example.com/data").
     Query("param1", "value1").
-    Header("Content-Type", "application/json").
     MarshalBody(MyRequest{Key: "value"}).
     Result(&myResult).
+    JSONHeaders().
     Do(context.Background())
 
 if err != nil {
@@ -215,6 +206,8 @@ defer resp.Body.Close()
 
 fmt.Println(myResult.Data)
 ```
+
+The `Do(ctx context.Context)` method executes the request, automatically marshalling the request body and unmarshaling the response if a result is set.
 
 About some of request configuration:
 
@@ -242,8 +235,6 @@ c.NewRequest().
     UnmarshalWith(json.Unmarshal)
 ```
 
-The `Do(ctx context.Context)` method executes the request, automatically marshalling the request body and unmarshalling the response if a result is set.
-
 # 🤝 Contributing
 
 This project is open-source and we welcome all contributions from the community! Please feel free to submit a Pull Request.
@@ -267,3 +258,27 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 ```
+
+# ❓ FAQ
+
+<details>
+  <summary><b>Why use axonet over the standard go HTTP package?</b></summary>
+  <p>
+  Axonet offers several advantages over the standard Go HTTP package:
+
+1. **Middleware System**: Axonet provides a flexible middleware system for easy integration of features like retry logic, circuit breaking, proxies, cookies and rate limiting. With the standard package, you would need to implement these yourself.
+
+2. **Request Building**: Axonet's request builder makes it simpler to construct complex requests, compared to manually setting up requests with the standard package.
+
+3. **Error Handling**: Axonet offers more detailed error types, making it easier to handle specific error scenarios compared to the standard package's more generic errors.
+
+4. **Automatic Marshaling/Unmarshaling**: Axonet can automatically handle JSON marshaling and unmarshaling, which you'd need to do manually with the standard package.
+
+5. **Configurable Logging**: Easy-to-use logging system for debugging, which isn't provided out-of-the-box with the standard package.
+
+6. **Performance Optimizations**: Axonet includes optimizations like request deduplication (via singleflight), which aren't available in the standard package.
+
+While the standard Go HTTP package is suitable for most cases, axonet provides a higher-level abstraction that's particularly well-suited for interacting with complex APIs, saving development time and reducing boilerplate code. It is also entirely up to your project's requirements.
+
+  </p>
+</details>
