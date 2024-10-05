@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/jaxron/axonet/middleware/proxy"
 	"github.com/jaxron/axonet/pkg/client/logger"
@@ -26,8 +27,6 @@ func TestProxyMiddleware(t *testing.T) {
 		middleware := proxy.New(proxies)
 		middleware.SetLogger(logger.NewBasicLogger())
 
-		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
-
 		handler := func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
 			transport, ok := httpClient.Transport.(*http.Transport)
 			require.True(t, ok)
@@ -38,15 +37,48 @@ func TestProxyMiddleware(t *testing.T) {
 			return &http.Response{StatusCode: http.StatusOK}, nil
 		}
 
-		// First request
-		resp, err := middleware.Process(context.Background(), &http.Client{}, req, handler)
-		require.NoError(t, err)
-		assert.Equal(t, http.StatusOK, resp.StatusCode)
+		// Multiple requests to check rotation
+		for i := 0; i < 10; i++ {
+			req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
+			resp, err := middleware.Process(context.Background(), &http.Client{}, req, handler)
+			require.NoError(t, err)
+			assert.Equal(t, http.StatusOK, resp.StatusCode)
+		}
+	})
 
-		// Second request
-		resp, err = middleware.Process(context.Background(), &http.Client{}, req, handler)
-		require.NoError(t, err)
-		assert.Equal(t, http.StatusOK, resp.StatusCode)
+	t.Run("Proxy rotation", func(t *testing.T) {
+		t.Parallel()
+
+		proxy1, _ := url.Parse("http://proxy1.example.com")
+		proxy2, _ := url.Parse("http://proxy2.example.com")
+		proxy3, _ := url.Parse("http://proxy3.example.com")
+		proxies := []*url.URL{proxy1, proxy2, proxy3}
+
+		middleware := proxy.New(proxies)
+		middleware.SetLogger(logger.NewBasicLogger())
+
+		handler := func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
+			transport, ok := httpClient.Transport.(*http.Transport)
+			require.True(t, ok)
+			assert.NotNil(t, transport.Proxy)
+			proxyURL, err := transport.Proxy(req)
+			require.NoError(t, err)
+			return &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Proxy-Used": []string{proxyURL.String()}}}, nil
+		}
+
+		usedProxies := make(map[string]bool)
+		for i := 0; i < 30; i++ {
+			req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
+			resp, err := middleware.Process(context.Background(), &http.Client{}, req, handler)
+			require.NoError(t, err)
+			usedProxies[resp.Header.Get("Proxy-Used")] = true
+		}
+
+		// All proxies should have been used
+		assert.Len(t, usedProxies, 3)
+		assert.True(t, usedProxies[proxy1.String()])
+		assert.True(t, usedProxies[proxy2.String()])
+		assert.True(t, usedProxies[proxy3.String()])
 	})
 
 	t.Run("Update proxies at runtime", func(t *testing.T) {
@@ -56,38 +88,37 @@ func TestProxyMiddleware(t *testing.T) {
 		middleware := proxy.New([]*url.URL{initialProxy})
 		middleware.SetLogger(logger.NewBasicLogger())
 
-		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
-
 		handler := func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
 			transport, ok := httpClient.Transport.(*http.Transport)
 			require.True(t, ok)
 			assert.NotNil(t, transport.Proxy)
 			proxyURL, err := transport.Proxy(req)
 			require.NoError(t, err)
-			assert.Equal(t, initialProxy.String(), proxyURL.String())
-			return &http.Response{StatusCode: http.StatusOK}, nil
+			return &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Proxy-Used": []string{proxyURL.String()}}}, nil
 		}
 
 		// Initial request
-		_, err := middleware.Process(context.Background(), &http.Client{}, req, handler)
+		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
+		resp, err := middleware.Process(context.Background(), &http.Client{}, req, handler)
 		require.NoError(t, err)
+		assert.Equal(t, initialProxy.String(), resp.Header.Get("Proxy-Used"))
 
 		// Update proxies
-		newProxy, _ := url.Parse("http://new.example.com")
-		middleware.UpdateProxies([]*url.URL{newProxy})
+		newProxy1, _ := url.Parse("http://new1.example.com")
+		newProxy2, _ := url.Parse("http://new2.example.com")
+		middleware.UpdateProxies([]*url.URL{newProxy1, newProxy2})
 
-		// Next request should use the new proxy
-		newHandler := func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
-			transport, ok := httpClient.Transport.(*http.Transport)
-			require.True(t, ok)
-			assert.NotNil(t, transport.Proxy)
-			proxyURL, err := transport.Proxy(req)
+		// Check that both new proxies are used
+		usedProxies := make(map[string]bool)
+		for i := 0; i < 20; i++ {
+			req = httptest.NewRequest(http.MethodGet, "http://example.com", nil)
+			resp, err = middleware.Process(context.Background(), &http.Client{}, req, handler)
 			require.NoError(t, err)
-			assert.Equal(t, newProxy.String(), proxyURL.String())
-			return &http.Response{StatusCode: http.StatusOK}, nil
+			usedProxies[resp.Header.Get("Proxy-Used")] = true
 		}
-		_, err = middleware.Process(context.Background(), &http.Client{}, req, newHandler)
-		require.NoError(t, err)
+		assert.True(t, usedProxies[newProxy1.String()])
+		assert.True(t, usedProxies[newProxy2.String()])
+		assert.False(t, usedProxies[initialProxy.String()])
 	})
 
 	t.Run("GetProxyCount", func(t *testing.T) {
@@ -115,20 +146,51 @@ func TestProxyMiddleware(t *testing.T) {
 
 		originalClient := &http.Client{}
 		handler := func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
-			// When no proxies are set, the client should remain unchanged
 			assert.Equal(t, originalClient, httpClient)
-
-			// If Transport is not nil, ensure it doesn't have a Proxy set
 			if transport, ok := httpClient.Transport.(*http.Transport); ok {
 				assert.Nil(t, transport.Proxy)
 			}
-
 			return &http.Response{StatusCode: http.StatusOK}, nil
 		}
 
 		resp, err := middleware.Process(context.Background(), originalClient, req, handler)
 		require.NoError(t, err)
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
+	})
+
+	t.Run("Weighted rotation", func(t *testing.T) {
+		t.Parallel()
+
+		proxy1, _ := url.Parse("http://proxy1.example.com")
+		proxy2, _ := url.Parse("http://proxy2.example.com")
+		proxy3, _ := url.Parse("http://proxy3.example.com")
+		proxies := []*url.URL{proxy1, proxy2, proxy3}
+
+		middleware := proxy.New(proxies)
+		middleware.SetLogger(logger.NewBasicLogger())
+
+		handler := func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
+			transport, ok := httpClient.Transport.(*http.Transport)
+			require.True(t, ok)
+			assert.NotNil(t, transport.Proxy)
+			proxyURL, err := transport.Proxy(req)
+			require.NoError(t, err)
+			return &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Proxy-Used": []string{proxyURL.String()}}}, nil
+		}
+
+		useCounts := make(map[string]int)
+		for i := 0; i < 1000; i++ {
+			req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
+			resp, err := middleware.Process(context.Background(), &http.Client{}, req, handler)
+			require.NoError(t, err)
+			useCounts[resp.Header.Get("Proxy-Used")]++
+			time.Sleep(time.Millisecond) // Small delay to affect weighted selection
+		}
+
+		// Check that all proxies were used and roughly evenly distributed
+		for _, count := range useCounts {
+			assert.InDelta(t, 333, count, 100) // Allow some variance
+		}
 	})
 }
 
