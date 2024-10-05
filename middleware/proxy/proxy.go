@@ -106,24 +106,39 @@ func (m *ProxyMiddleware) selectProxy() *url.URL {
 
 // applyProxyToClient applies the proxy to the given http.Client.
 func (m *ProxyMiddleware) applyProxyToClient(httpClient *http.Client, proxy *url.URL) (*http.Client, error) {
-	transport, ok := http.DefaultTransport.(*http.Transport)
-	if !ok {
-		return nil, ErrInvalidTransport
+	// Get the transport from the client
+	transport, err := m.getTransport(httpClient)
+	if err != nil {
+		return nil, err
 	}
-	transport = transport.Clone()
-	transport.Proxy = http.ProxyURL(proxy)
-	transport.OnProxyConnectResponse = func(ctx context.Context, proxyURL *url.URL, connectReq *http.Request, connectRes *http.Response) error {
+
+	// Clone the transport
+	newTransport := transport.Clone()
+
+	// Modify only the necessary fields
+	newTransport.Proxy = http.ProxyURL(proxy)
+	newTransport.OnProxyConnectResponse = func(ctx context.Context, proxyURL *url.URL, connectReq *http.Request, connectRes *http.Response) error {
 		m.logger.WithFields(logger.String("proxy", proxyURL.Host)).Debug("Proxy connection established")
 		return nil
 	}
 
-	// Shallow copy the client to avoid modifying the original
+	// Create a new client with the modified transport
 	return &http.Client{
-		Transport:     transport,
+		Transport:     newTransport,
 		CheckRedirect: httpClient.CheckRedirect,
 		Jar:           httpClient.Jar,
 		Timeout:       httpClient.Timeout,
 	}, nil
+}
+
+func (m *ProxyMiddleware) getTransport(httpClient *http.Client) (*http.Transport, error) {
+	if t, ok := httpClient.Transport.(*http.Transport); ok {
+		return t, nil
+	}
+	if httpClient.Transport == nil {
+		return http.DefaultTransport.(*http.Transport), nil
+	}
+	return nil, ErrInvalidTransport
 }
 
 // UpdateProxies updates the list of proxies at runtime.
