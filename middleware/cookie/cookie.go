@@ -2,8 +2,10 @@ package cookie
 
 import (
 	"context"
+	"math/rand"
 	"net/http"
-	"sync/atomic"
+	"sync"
+	"time"
 
 	"github.com/jaxron/axonet/pkg/client/logger"
 	"github.com/jaxron/axonet/pkg/client/middleware"
@@ -17,24 +19,27 @@ const (
 
 // CookieMiddleware manages cookie rotation for HTTP requests.
 type CookieMiddleware struct {
-	cookies atomic.Value
-	current atomic.Uint64
-	logger  logger.Logger
+	mu     sync.RWMutex
+	state  *cookieState
+	logger logger.Logger
 }
 
 type cookieState struct {
-	cookies [][]*http.Cookie
+	cookies  [][]*http.Cookie
+	lastUsed []time.Time
 }
 
 // New creates a new CookieMiddleware instance.
 func New(cookies [][]*http.Cookie) *CookieMiddleware {
-	m := &CookieMiddleware{
-		cookies: atomic.Value{},
-		current: atomic.Uint64{},
-		logger:  &logger.NoOpLogger{},
+	lastUsed := make([]time.Time, len(cookies))
+	for i := range lastUsed {
+		lastUsed[i] = time.Now().Add(-24 * time.Hour) // Initialize with a past time
 	}
-	m.cookies.Store(&cookieState{cookies: cookies})
-	return m
+	return &CookieMiddleware{
+		mu:     sync.RWMutex{},
+		state:  &cookieState{cookies: cookies, lastUsed: lastUsed},
+		logger: &logger.NoOpLogger{},
+	}
 }
 
 // Process applies cookie logic before passing the request to the next middleware.
@@ -47,15 +52,14 @@ func (m *CookieMiddleware) Process(ctx context.Context, httpClient *http.Client,
 
 	m.logger.Debug("Processing request with cookie middleware")
 
-	state := m.cookies.Load().(*cookieState)
-	cookiesLen := len(state.cookies)
+	m.mu.RLock()
+	cookiesLen := len(m.state.cookies)
+	m.mu.RUnlock()
 
 	if cookiesLen > 0 {
-		current := m.current.Add(1) - 1
-		index := int(current % uint64(cookiesLen)) // #nosec G115
-		cookies := state.cookies[index]
+		cookies := m.selectCookieSet()
 
-		m.logger.WithFields(logger.Int("cookies", len(cookies))).Debug("Using Cookie")
+		m.logger.WithFields(logger.Int("cookies", len(cookies))).Debug("Using Cookie Set")
 
 		// Apply the cookies to the request
 		for _, cookie := range cookies {
@@ -66,19 +70,61 @@ func (m *CookieMiddleware) Process(ctx context.Context, httpClient *http.Client,
 	return next(ctx, httpClient, req)
 }
 
-// UpdateCookies updates the list of cookies at runtime.
-func (m *CookieMiddleware) UpdateCookies(cookies [][]*http.Cookie) {
-	newState := &cookieState{cookies: cookies}
-	m.cookies.Store(newState)
-	m.current.Store(0)
+// selectCookieSet chooses the next cookie set to use based on a weighted random selection.
+func (m *CookieMiddleware) selectCookieSet() []*http.Cookie {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 
-	m.logger.WithFields(logger.Int("cookies", len(cookies))).Debug("Cookies updated")
+	total := 0.0
+	weights := make([]float64, len(m.state.cookies))
+	now := time.Now()
+
+	for i, lastUsed := range m.state.lastUsed {
+		timeSinceUse := now.Sub(lastUsed).Hours()
+		weight := 1.0 + timeSinceUse // Add 1 to avoid zero weight
+		weights[i] = weight
+		total += weight
+	}
+
+	r := rand.Float64() * total
+	for i, weight := range weights {
+		r -= weight
+		if r <= 0 {
+			m.state.lastUsed[i] = now
+			return m.state.cookies[i]
+		}
+	}
+
+	// Fallback to last set
+	lastIndex := len(m.state.cookies) - 1
+	m.state.lastUsed[lastIndex] = now
+	return m.state.cookies[lastIndex]
 }
 
-// GetCookieCount returns the current number of cookies in the list.
+// UpdateCookies updates the list of cookies at runtime.
+func (m *CookieMiddleware) UpdateCookies(cookies [][]*http.Cookie) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	newLastUsed := make([]time.Time, len(cookies))
+	for i := range newLastUsed {
+		if i < len(m.state.lastUsed) {
+			newLastUsed[i] = m.state.lastUsed[i]
+		} else {
+			newLastUsed[i] = time.Now().Add(-24 * time.Hour)
+		}
+	}
+	m.state = &cookieState{cookies: cookies, lastUsed: newLastUsed}
+
+	m.logger.WithFields(logger.Int("cookie_sets", len(cookies))).Debug("Cookies updated")
+}
+
+// GetCookieCount returns the current number of cookie sets in the list.
 func (m *CookieMiddleware) GetCookieCount() int {
-	state := m.cookies.Load().(*cookieState)
-	return len(state.cookies)
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	return len(m.state.cookies)
 }
 
 // SetLogger sets the logger for the middleware.

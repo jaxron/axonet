@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/jaxron/axonet/middleware/cookie"
 	"github.com/jaxron/axonet/pkg/client/logger"
@@ -36,31 +37,18 @@ func TestCookieMiddleware(t *testing.T) {
 			return &http.Response{StatusCode: http.StatusOK}, nil
 		}
 
-		// First request
-		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
-		resp, err := middleware.Process(context.Background(), &http.Client{}, req, handler)
-		require.NoError(t, err)
-		assert.Equal(t, http.StatusOK, resp.StatusCode)
+		// Multiple requests to check rotation
+		for i := 0; i < 10; i++ {
+			req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
+			resp, err := middleware.Process(context.Background(), &http.Client{}, req, handler)
+			require.NoError(t, err)
+			assert.Equal(t, http.StatusOK, resp.StatusCode)
 
-		reqCookies := req.Cookies()
-		assert.Len(t, reqCookies, 2)
-		assert.Equal(t, "session", reqCookies[0].Name)
-		assert.Equal(t, "123", reqCookies[0].Value)
-		assert.Equal(t, "user", reqCookies[1].Name)
-		assert.Equal(t, "john", reqCookies[1].Value)
-
-		// Second request (should use the next set of cookies)
-		req = httptest.NewRequest(http.MethodGet, "http://example.com", nil)
-		resp, err = middleware.Process(context.Background(), &http.Client{}, req, handler)
-		require.NoError(t, err)
-		assert.Equal(t, http.StatusOK, resp.StatusCode)
-
-		reqCookies = req.Cookies()
-		assert.Len(t, reqCookies, 2)
-		assert.Equal(t, "session", reqCookies[0].Name)
-		assert.Equal(t, "456", reqCookies[0].Value)
-		assert.Equal(t, "user", reqCookies[1].Name)
-		assert.Equal(t, "jane", reqCookies[1].Value)
+			reqCookies := req.Cookies()
+			assert.Len(t, reqCookies, 2)
+			assert.Contains(t, []string{"123", "456"}, reqCookies[0].Value)
+			assert.Contains(t, []string{"john", "jane"}, reqCookies[1].Value)
+		}
 	})
 
 	t.Run("Cookie rotation", func(t *testing.T) {
@@ -79,7 +67,8 @@ func TestCookieMiddleware(t *testing.T) {
 			return &http.Response{StatusCode: http.StatusOK}, nil
 		}
 
-		for i := 0; i < 5; i++ {
+		usedValues := make(map[string]bool)
+		for i := 0; i < 30; i++ {
 			req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
 			_, err := middleware.Process(context.Background(), &http.Client{}, req, handler)
 			require.NoError(t, err)
@@ -87,8 +76,14 @@ func TestCookieMiddleware(t *testing.T) {
 			reqCookies := req.Cookies()
 			assert.Len(t, reqCookies, 1)
 			assert.Equal(t, "session", reqCookies[0].Name)
-			assert.Equal(t, cookies[i%3][0].Value, reqCookies[0].Value)
+			usedValues[reqCookies[0].Value] = true
 		}
+
+		// All cookie values should have been used
+		assert.Len(t, usedValues, 3)
+		assert.True(t, usedValues["123"])
+		assert.True(t, usedValues["456"])
+		assert.True(t, usedValues["789"])
 	})
 
 	t.Run("Update cookies at runtime", func(t *testing.T) {
@@ -113,15 +108,22 @@ func TestCookieMiddleware(t *testing.T) {
 
 		// Update cookies
 		newCookies := [][]*http.Cookie{
-			{&http.Cookie{Name: "session", Value: "updated"}},
+			{&http.Cookie{Name: "session", Value: "updated1"}},
+			{&http.Cookie{Name: "session", Value: "updated2"}},
 		}
 		middleware.UpdateCookies(newCookies)
 
-		// Next request should use updated cookies
-		req = httptest.NewRequest(http.MethodGet, "http://example.com", nil)
-		_, err = middleware.Process(context.Background(), &http.Client{}, req, handler)
-		require.NoError(t, err)
-		assert.Equal(t, "updated", req.Cookies()[0].Value)
+		// Check that both new cookie sets are used
+		usedValues := make(map[string]bool)
+		for i := 0; i < 20; i++ {
+			req = httptest.NewRequest(http.MethodGet, "http://example.com", nil)
+			_, err = middleware.Process(context.Background(), &http.Client{}, req, handler)
+			require.NoError(t, err)
+			usedValues[req.Cookies()[0].Value] = true
+		}
+		assert.True(t, usedValues["updated1"])
+		assert.True(t, usedValues["updated2"])
+		assert.False(t, usedValues["initial"])
 	})
 
 	t.Run("GetCookieCount", func(t *testing.T) {
@@ -159,6 +161,37 @@ func TestCookieMiddleware(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 		assert.Empty(t, req.Cookies())
+	})
+
+	t.Run("Weighted rotation", func(t *testing.T) {
+		t.Parallel()
+
+		cookies := [][]*http.Cookie{
+			{&http.Cookie{Name: "session", Value: "1"}},
+			{&http.Cookie{Name: "session", Value: "2"}},
+			{&http.Cookie{Name: "session", Value: "3"}},
+		}
+
+		middleware := cookie.New(cookies)
+		middleware.SetLogger(logger.NewBasicLogger())
+
+		handler := func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
+			return &http.Response{StatusCode: http.StatusOK}, nil
+		}
+
+		useCounts := make(map[string]int)
+		for i := 0; i < 1000; i++ {
+			req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
+			_, err := middleware.Process(context.Background(), &http.Client{}, req, handler)
+			require.NoError(t, err)
+			useCounts[req.Cookies()[0].Value]++
+			time.Sleep(time.Millisecond) // Small delay to affect weighted selection
+		}
+
+		// Check that all cookie sets were used and roughly evenly distributed
+		for _, count := range useCounts {
+			assert.InDelta(t, 333, count, 100) // Allow some variance
+		}
 	})
 }
 
