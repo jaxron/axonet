@@ -17,21 +17,17 @@ const (
 
 // CookieMiddleware manages cookie rotation for HTTP requests.
 type CookieMiddleware struct {
-	mu     sync.RWMutex
-	state  *cookieState
-	logger logger.Logger
-}
-
-type cookieState struct {
+	mu      sync.RWMutex
 	cookies [][]*http.Cookie
+	logger  logger.Logger
 }
 
 // New creates a new CookieMiddleware instance.
 func New(cookies [][]*http.Cookie) *CookieMiddleware {
 	return &CookieMiddleware{
-		mu:     sync.RWMutex{},
-		state:  &cookieState{cookies: cookies},
-		logger: &logger.NoOpLogger{},
+		mu:      sync.RWMutex{},
+		cookies: cookies,
+		logger:  &logger.NoOpLogger{},
 	}
 }
 
@@ -46,7 +42,7 @@ func (m *CookieMiddleware) Process(ctx context.Context, httpClient *http.Client,
 	m.logger.Debug("Processing request with cookie middleware")
 
 	m.mu.RLock()
-	cookiesLen := len(m.state.cookies)
+	cookiesLen := len(m.cookies)
 	m.mu.RUnlock()
 
 	if cookiesLen > 0 {
@@ -68,12 +64,12 @@ func (m *CookieMiddleware) selectCookieSet() []*http.Cookie {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if len(m.state.cookies) == 0 {
+	if len(m.cookies) == 0 {
 		return nil
 	}
 
-	cookieSet := m.state.cookies[0]
-	m.state.cookies = append(m.state.cookies[1:], cookieSet)
+	cookieSet := m.cookies[0]
+	m.cookies = append(m.cookies[1:], cookieSet)
 
 	return cookieSet
 }
@@ -83,7 +79,7 @@ func (m *CookieMiddleware) UpdateCookies(cookies [][]*http.Cookie) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.state.cookies = cookies
+	m.cookies = cookies
 
 	m.logger.WithFields(logger.Int("cookie_sets", len(cookies))).Debug("Cookies updated")
 }
@@ -93,7 +89,7 @@ func (m *CookieMiddleware) GetCookieCount() int {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	return len(m.state.cookies)
+	return len(m.cookies)
 }
 
 // SetLogger sets the logger for the middleware.

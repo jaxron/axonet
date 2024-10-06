@@ -21,21 +21,17 @@ const (
 
 // ProxyMiddleware manages proxy rotation for HTTP requests.
 type ProxyMiddleware struct {
-	mu     sync.RWMutex
-	state  *proxyState
-	logger logger.Logger
-}
-
-type proxyState struct {
+	mu      sync.RWMutex
 	proxies []*url.URL
+	logger  logger.Logger
 }
 
 // New creates a new ProxyMiddleware instance.
 func New(proxies []*url.URL) *ProxyMiddleware {
 	return &ProxyMiddleware{
-		mu:     sync.RWMutex{},
-		state:  &proxyState{proxies: proxies},
-		logger: &logger.NoOpLogger{},
+		mu:      sync.RWMutex{},
+		proxies: proxies,
+		logger:  &logger.NoOpLogger{},
 	}
 }
 
@@ -49,7 +45,7 @@ func (m *ProxyMiddleware) Process(ctx context.Context, httpClient *http.Client, 
 	m.logger.Debug("Processing request with proxy middleware")
 
 	m.mu.RLock()
-	proxyLen := len(m.state.proxies)
+	proxyLen := len(m.proxies)
 	m.mu.RUnlock()
 
 	if proxyLen > 0 {
@@ -71,12 +67,12 @@ func (m *ProxyMiddleware) selectProxy() *url.URL {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if len(m.state.proxies) == 0 {
+	if len(m.proxies) == 0 {
 		return nil
 	}
 
-	proxy := m.state.proxies[0]
-	m.state.proxies = append(m.state.proxies[1:], proxy)
+	proxy := m.proxies[0]
+	m.proxies = append(m.proxies[1:], proxy)
 
 	return proxy
 }
@@ -123,7 +119,7 @@ func (m *ProxyMiddleware) UpdateProxies(newProxies []*url.URL) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.state.proxies = newProxies
+	m.proxies = newProxies
 
 	m.logger.WithFields(logger.Int("proxy_count", len(newProxies))).Debug("Proxies updated")
 }
@@ -133,7 +129,7 @@ func (m *ProxyMiddleware) GetProxyCount() int {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	return len(m.state.proxies)
+	return len(m.proxies)
 }
 
 // SetLogger sets the logger for the middleware.
