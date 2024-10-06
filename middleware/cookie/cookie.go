@@ -2,10 +2,8 @@ package cookie
 
 import (
 	"context"
-	"math/rand"
 	"net/http"
 	"sync"
-	"time"
 
 	"github.com/jaxron/axonet/pkg/client/logger"
 	"github.com/jaxron/axonet/pkg/client/middleware"
@@ -25,19 +23,14 @@ type CookieMiddleware struct {
 }
 
 type cookieState struct {
-	cookies  [][]*http.Cookie
-	lastUsed []time.Time
+	cookies [][]*http.Cookie
 }
 
 // New creates a new CookieMiddleware instance.
 func New(cookies [][]*http.Cookie) *CookieMiddleware {
-	lastUsed := make([]time.Time, len(cookies))
-	for i := range lastUsed {
-		lastUsed[i] = time.Now().Add(-24 * time.Hour) // Initialize with a past time
-	}
 	return &CookieMiddleware{
 		mu:     sync.RWMutex{},
-		state:  &cookieState{cookies: cookies, lastUsed: lastUsed},
+		state:  &cookieState{cookies: cookies},
 		logger: &logger.NoOpLogger{},
 	}
 }
@@ -70,35 +63,19 @@ func (m *CookieMiddleware) Process(ctx context.Context, httpClient *http.Client,
 	return next(ctx, httpClient, req)
 }
 
-// selectCookieSet chooses the next cookie set to use based on a weighted random selection.
+// selectCookieSet chooses the next cookie set to use.
 func (m *CookieMiddleware) selectCookieSet() []*http.Cookie {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	total := 0.0
-	weights := make([]float64, len(m.state.cookies))
-	now := time.Now()
-
-	for i, lastUsed := range m.state.lastUsed {
-		timeSinceUse := now.Sub(lastUsed).Hours()
-		weight := 1.0 + timeSinceUse // Add 1 to avoid zero weight
-		weights[i] = weight
-		total += weight
+	if len(m.state.cookies) == 0 {
+		return nil
 	}
 
-	r := rand.Float64() * total
-	for i, weight := range weights {
-		r -= weight
-		if r <= 0 {
-			m.state.lastUsed[i] = now
-			return m.state.cookies[i]
-		}
-	}
+	cookieSet := m.state.cookies[0]
+	m.state.cookies = append(m.state.cookies[1:], cookieSet)
 
-	// Fallback to last set
-	lastIndex := len(m.state.cookies) - 1
-	m.state.lastUsed[lastIndex] = now
-	return m.state.cookies[lastIndex]
+	return cookieSet
 }
 
 // UpdateCookies updates the list of cookies at runtime.
@@ -106,15 +83,7 @@ func (m *CookieMiddleware) UpdateCookies(cookies [][]*http.Cookie) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	newLastUsed := make([]time.Time, len(cookies))
-	for i := range newLastUsed {
-		if i < len(m.state.lastUsed) {
-			newLastUsed[i] = m.state.lastUsed[i]
-		} else {
-			newLastUsed[i] = time.Now().Add(-24 * time.Hour)
-		}
-	}
-	m.state = &cookieState{cookies: cookies, lastUsed: newLastUsed}
+	m.state.cookies = cookies
 
 	m.logger.WithFields(logger.Int("cookie_sets", len(cookies))).Debug("Cookies updated")
 }

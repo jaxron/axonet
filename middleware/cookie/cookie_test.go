@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/jaxron/axonet/middleware/cookie"
 	"github.com/jaxron/axonet/pkg/client/logger"
@@ -163,7 +162,7 @@ func TestCookieMiddleware(t *testing.T) {
 		assert.Empty(t, req.Cookies())
 	})
 
-	t.Run("Weighted rotation", func(t *testing.T) {
+	t.Run("FIFO rotation", func(t *testing.T) {
 		t.Parallel()
 
 		cookies := [][]*http.Cookie{
@@ -179,34 +178,28 @@ func TestCookieMiddleware(t *testing.T) {
 			return &http.Response{StatusCode: http.StatusOK}, nil
 		}
 
-		useCounts := make(map[string]int)
-		for i := 0; i < 1000; i++ {
+		expectedOrder := []string{"1", "2", "3", "1", "2", "3"}
+
+		for i, expected := range expectedOrder {
 			req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
 			_, err := middleware.Process(context.Background(), &http.Client{}, req, handler)
 			require.NoError(t, err)
-			useCounts[req.Cookies()[0].Value]++
-			time.Sleep(time.Millisecond) // Small delay to affect weighted selection
-		}
 
-		// Check that all cookie sets were used and roughly evenly distributed
-		for _, count := range useCounts {
-			assert.InDelta(t, 333, count, 100) // Allow some variance
+			reqCookies := req.Cookies()
+			assert.Len(t, reqCookies, 1)
+			assert.Equal(t, expected, reqCookies[0].Value, "Iteration %d", i)
 		}
 	})
-}
-
-func TestCookieMiddlewareDisable(t *testing.T) {
-	t.Parallel()
-
-	cookies := [][]*http.Cookie{
-		{&http.Cookie{Name: "session", Value: "123"}},
-	}
-
-	middleware := cookie.New(cookies)
-	middleware.SetLogger(logger.NewBasicLogger())
 
 	t.Run("Middleware enabled (default)", func(t *testing.T) {
 		t.Parallel()
+
+		cookies := [][]*http.Cookie{
+			{&http.Cookie{Name: "session", Value: "123"}},
+		}
+
+		middleware := cookie.New(cookies)
+		middleware.SetLogger(logger.NewBasicLogger())
 
 		handler := func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
 			return &http.Response{StatusCode: http.StatusOK}, nil
@@ -224,6 +217,13 @@ func TestCookieMiddlewareDisable(t *testing.T) {
 
 	t.Run("Middleware disabled via context", func(t *testing.T) {
 		t.Parallel()
+
+		cookies := [][]*http.Cookie{
+			{&http.Cookie{Name: "session", Value: "123"}},
+		}
+
+		middleware := cookie.New(cookies)
+		middleware.SetLogger(logger.NewBasicLogger())
 
 		handler := func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
 			return &http.Response{StatusCode: http.StatusOK}, nil
