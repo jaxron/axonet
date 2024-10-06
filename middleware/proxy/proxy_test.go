@@ -6,7 +6,6 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"testing"
-	"time"
 
 	"github.com/jaxron/axonet/middleware/proxy"
 	"github.com/jaxron/axonet/pkg/client/logger"
@@ -46,7 +45,7 @@ func TestProxyMiddleware(t *testing.T) {
 		}
 	})
 
-	t.Run("Proxy rotation", func(t *testing.T) {
+	t.Run("FIFO rotation", func(t *testing.T) {
 		t.Parallel()
 
 		proxy1, _ := url.Parse("http://proxy1.example.com")
@@ -66,19 +65,17 @@ func TestProxyMiddleware(t *testing.T) {
 			return &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Proxy-Used": []string{proxyURL.String()}}}, nil
 		}
 
-		usedProxies := make(map[string]bool)
-		for i := 0; i < 30; i++ {
+		expectedOrder := []string{
+			proxy1.String(), proxy2.String(), proxy3.String(),
+			proxy1.String(), proxy2.String(), proxy3.String(),
+		}
+
+		for i, expected := range expectedOrder {
 			req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
 			resp, err := middleware.Process(context.Background(), &http.Client{}, req, handler)
 			require.NoError(t, err)
-			usedProxies[resp.Header.Get("Proxy-Used")] = true
+			assert.Equal(t, expected, resp.Header.Get("Proxy-Used"), "Iteration %d", i)
 		}
-
-		// All proxies should have been used
-		assert.Len(t, usedProxies, 3)
-		assert.True(t, usedProxies[proxy1.String()])
-		assert.True(t, usedProxies[proxy2.String()])
-		assert.True(t, usedProxies[proxy3.String()])
 	})
 
 	t.Run("Update proxies at runtime", func(t *testing.T) {
@@ -158,90 +155,55 @@ func TestProxyMiddleware(t *testing.T) {
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 	})
 
-	t.Run("Weighted rotation", func(t *testing.T) {
+	t.Run("Disable proxy", func(t *testing.T) {
 		t.Parallel()
 
-		proxy1, _ := url.Parse("http://proxy1.example.com")
-		proxy2, _ := url.Parse("http://proxy2.example.com")
-		proxy3, _ := url.Parse("http://proxy3.example.com")
-		proxies := []*url.URL{proxy1, proxy2, proxy3}
+		proxyURL, _ := url.Parse("http://proxy.example.com")
+		proxies := []*url.URL{proxyURL}
 
 		middleware := proxy.New(proxies)
 		middleware.SetLogger(logger.NewBasicLogger())
 
-		handler := func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
-			transport, ok := httpClient.Transport.(*http.Transport)
-			require.True(t, ok)
-			assert.NotNil(t, transport.Proxy)
-			proxyURL, err := transport.Proxy(req)
-			require.NoError(t, err)
-			return &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Proxy-Used": []string{proxyURL.String()}}}, nil
-		}
+		t.Run("Middleware enabled (default)", func(t *testing.T) {
+			t.Parallel()
 
-		useCounts := make(map[string]int)
-		for i := 0; i < 1000; i++ {
 			req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
-			resp, err := middleware.Process(context.Background(), &http.Client{}, req, handler)
-			require.NoError(t, err)
-			useCounts[resp.Header.Get("Proxy-Used")]++
-			time.Sleep(time.Millisecond) // Small delay to affect weighted selection
-		}
 
-		// Check that all proxies were used and roughly evenly distributed
-		for _, count := range useCounts {
-			assert.InDelta(t, 333, count, 100) // Allow some variance
-		}
-	})
-}
-
-func TestProxyMiddlewareDisable(t *testing.T) {
-	t.Parallel()
-
-	proxyURL, _ := url.Parse("http://proxy.example.com")
-	proxies := []*url.URL{proxyURL}
-
-	middleware := proxy.New(proxies)
-	middleware.SetLogger(logger.NewBasicLogger())
-
-	t.Run("Middleware enabled (default)", func(t *testing.T) {
-		t.Parallel()
-
-		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
-
-		handler := func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
-			transport, ok := httpClient.Transport.(*http.Transport)
-			require.True(t, ok)
-			assert.NotNil(t, transport.Proxy)
-			actualProxyURL, err := transport.Proxy(req)
-			require.NoError(t, err)
-			assert.Equal(t, "http://proxy.example.com", actualProxyURL.String())
-			return &http.Response{StatusCode: http.StatusOK}, nil
-		}
-
-		_, err := middleware.Process(context.Background(), &http.Client{}, req, handler)
-		require.NoError(t, err)
-	})
-
-	t.Run("Middleware disabled via context", func(t *testing.T) {
-		t.Parallel()
-
-		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
-		ctx := context.WithValue(context.Background(), proxy.KeySkipProxy, true)
-
-		originalClient := &http.Client{}
-		handler := func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
-			// When proxy is disabled, the client should remain unchanged
-			assert.Equal(t, originalClient, httpClient)
-
-			// If Transport is not nil, ensure it doesn't have a Proxy set
-			if transport, ok := httpClient.Transport.(*http.Transport); ok {
-				assert.Nil(t, transport.Proxy)
+			handler := func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
+				transport, ok := httpClient.Transport.(*http.Transport)
+				require.True(t, ok)
+				assert.NotNil(t, transport.Proxy)
+				actualProxyURL, err := transport.Proxy(req)
+				require.NoError(t, err)
+				assert.Equal(t, "http://proxy.example.com", actualProxyURL.String())
+				return &http.Response{StatusCode: http.StatusOK}, nil
 			}
 
-			return &http.Response{StatusCode: http.StatusOK}, nil
-		}
+			_, err := middleware.Process(context.Background(), &http.Client{}, req, handler)
+			require.NoError(t, err)
+		})
 
-		_, err := middleware.Process(ctx, originalClient, req, handler)
-		require.NoError(t, err)
+		t.Run("Middleware disabled via context", func(t *testing.T) {
+			t.Parallel()
+
+			req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
+			ctx := context.WithValue(context.Background(), proxy.KeySkipProxy, true)
+
+			originalClient := &http.Client{}
+			handler := func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
+				// When proxy is disabled, the client should remain unchanged
+				assert.Equal(t, originalClient, httpClient)
+
+				// If Transport is not nil, ensure it doesn't have a Proxy set
+				if transport, ok := httpClient.Transport.(*http.Transport); ok {
+					assert.Nil(t, transport.Proxy)
+				}
+
+				return &http.Response{StatusCode: http.StatusOK}, nil
+			}
+
+			_, err := middleware.Process(ctx, originalClient, req, handler)
+			require.NoError(t, err)
+		})
 	})
 }

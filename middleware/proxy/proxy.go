@@ -3,11 +3,9 @@ package proxy
 import (
 	"context"
 	"errors"
-	"math/rand"
 	"net/http"
 	"net/url"
 	"sync"
-	"time"
 
 	"github.com/jaxron/axonet/pkg/client/logger"
 	"github.com/jaxron/axonet/pkg/client/middleware"
@@ -29,19 +27,14 @@ type ProxyMiddleware struct {
 }
 
 type proxyState struct {
-	proxies  []*url.URL
-	lastUsed []time.Time
+	proxies []*url.URL
 }
 
 // New creates a new ProxyMiddleware instance.
 func New(proxies []*url.URL) *ProxyMiddleware {
-	lastUsed := make([]time.Time, len(proxies))
-	for i := range lastUsed {
-		lastUsed[i] = time.Now().Add(-24 * time.Hour) // Initialize with a past time
-	}
 	return &ProxyMiddleware{
 		mu:     sync.RWMutex{},
-		state:  &proxyState{proxies: proxies, lastUsed: lastUsed},
+		state:  &proxyState{proxies: proxies},
 		logger: &logger.NoOpLogger{},
 	}
 }
@@ -73,35 +66,19 @@ func (m *ProxyMiddleware) Process(ctx context.Context, httpClient *http.Client, 
 	return next(ctx, httpClient, req)
 }
 
-// selectProxy chooses the next proxy to use based on a weighted random selection.
+// selectProxy chooses the next proxy to use.
 func (m *ProxyMiddleware) selectProxy() *url.URL {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	total := 0.0
-	weights := make([]float64, len(m.state.proxies))
-	now := time.Now()
-
-	for i, lastUsed := range m.state.lastUsed {
-		timeSinceUse := now.Sub(lastUsed).Hours()
-		weight := 1.0 + timeSinceUse // Add 1 to avoid zero weight
-		weights[i] = weight
-		total += weight
+	if len(m.state.proxies) == 0 {
+		return nil
 	}
 
-	r := rand.Float64() * total
-	for i, weight := range weights {
-		r -= weight
-		if r <= 0 {
-			m.state.lastUsed[i] = now
-			return m.state.proxies[i]
-		}
-	}
+	proxy := m.state.proxies[0]
+	m.state.proxies = append(m.state.proxies[1:], proxy)
 
-	// Fallback to last proxy
-	lastIndex := len(m.state.proxies) - 1
-	m.state.lastUsed[lastIndex] = now
-	return m.state.proxies[lastIndex]
+	return proxy
 }
 
 // applyProxyToClient applies the proxy to the given http.Client.
@@ -146,15 +123,7 @@ func (m *ProxyMiddleware) UpdateProxies(newProxies []*url.URL) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	newLastUsed := make([]time.Time, len(newProxies))
-	for i := range newLastUsed {
-		if i < len(m.state.lastUsed) {
-			newLastUsed[i] = m.state.lastUsed[i]
-		} else {
-			newLastUsed[i] = time.Now().Add(-24 * time.Hour)
-		}
-	}
-	m.state = &proxyState{proxies: newProxies, lastUsed: newLastUsed}
+	m.state.proxies = newProxies
 
 	m.logger.WithFields(logger.Int("proxy_count", len(newProxies))).Debug("Proxies updated")
 }
