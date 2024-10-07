@@ -68,8 +68,6 @@ func (m *CircuitBreakerMiddleware) Process(ctx context.Context, httpClient *http
 			return nil, fmt.Errorf("%w: %w", ErrCircuitOpen, err)
 		case gobreaker.ErrTooManyRequests:
 			return nil, fmt.Errorf("%w: %w", ErrCircuitExhausted, err)
-		default:
-			return nil, err
 		}
 	}
 
@@ -79,7 +77,8 @@ func (m *CircuitBreakerMiddleware) Process(ctx context.Context, httpClient *http
 		return nil, clientErrors.ErrUnreachable
 	}
 
-	return resp, nil
+	// Note: we let the user handle response
+	return resp, err
 }
 
 // SetLogger sets the logger for the middleware.

@@ -108,11 +108,6 @@ func (c *Chain) performRequest(ctx context.Context, httpClient *http.Client, req
 		return nil, fmt.Errorf("%w: %w", errors.ErrNetwork, err)
 	}
 
-	// Check for non-ok status codes
-	if resp.StatusCode != http.StatusOK {
-		return resp, fmt.Errorf("%w: %d", errors.ErrBadStatus, resp.StatusCode)
-	}
-
 	// Log the response details
 	c.logger.WithFields(
 		logger.Int("status", resp.StatusCode),

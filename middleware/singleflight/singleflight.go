@@ -52,9 +52,6 @@ func (m *SingleFlightMiddleware) Process(ctx context.Context, httpClient *http.C
 	result, err, _ := m.sfGroup.Do(key, func() (interface{}, error) {
 		return next(ctx, httpClient, req)
 	})
-	if err != nil {
-		return nil, err
-	}
 
 	// Type assertion to get the response
 	resp, ok := result.(*http.Response)
@@ -62,7 +59,8 @@ func (m *SingleFlightMiddleware) Process(ctx context.Context, httpClient *http.C
 		return nil, clientErrors.ErrUnreachable
 	}
 
-	return resp, nil
+	// Note: we let the user handle response
+	return resp, err
 }
 
 // generateRequestKey generates a unique key for the request based on the method, URL, headers, and body.

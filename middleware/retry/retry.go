@@ -2,8 +2,6 @@ package retry
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"net/http"
 	"time"
 
@@ -12,8 +10,6 @@ import (
 	"github.com/jaxron/axonet/pkg/client/logger"
 	"github.com/jaxron/axonet/pkg/client/middleware"
 )
-
-var ErrRetryFailed = errors.New("retry failed")
 
 // RetryMiddleware implements retry logic for HTTP requests with exponential backoff.
 type RetryMiddleware struct {
@@ -45,13 +41,13 @@ func (m *RetryMiddleware) Process(ctx context.Context, httpClient *http.Client, 
 	backoffStrategy := backoff.WithContext(expBackoff, ctx)
 
 	var resp *http.Response
-	var err error
 
 	// Retry the request using the backoff strategy
-	retryErr := backoff.RetryNotify(
+	err := backoff.RetryNotify(
 		func() error {
+			var err error
 			resp, err = next(ctx, httpClient, req)
-			return m.handleRetryError(err)
+			return m.handleRetryError(resp, err)
 		},
 		backoffStrategy,
 		func(err error, duration time.Duration) {
@@ -62,27 +58,33 @@ func (m *RetryMiddleware) Process(ctx context.Context, httpClient *http.Client, 
 		},
 	)
 
-	// If the retry failed, return the error
-	if retryErr != nil {
-		return nil, fmt.Errorf("%w: %w", ErrRetryFailed, retryErr)
-	}
-
-	// If the request failed, return the error
-	if err != nil {
-		return nil, err
-	}
-
-	return resp, nil
+	// Note: we let the user handle response
+	return resp, err
 }
 
-// handleRetryError determines whether to retry the request based on the error type.
-func (m *RetryMiddleware) handleRetryError(err error) error {
+// handleRetryError determines whether to retry the request based on the status code and error type.
+func (m *RetryMiddleware) handleRetryError(resp *http.Response, err error) error {
+	if resp != nil {
+		switch {
+		case resp.StatusCode >= 500:
+			// Server errors are typically temporary
+			return clientErrors.ErrBadStatus
+		case resp.StatusCode == http.StatusTooManyRequests:
+			// Too Many Requests - should be retried
+			return clientErrors.ErrBadStatus
+		case resp.StatusCode >= 400 && resp.StatusCode < 500:
+			// Client errors are typically permanent
+			return backoff.Permanent(clientErrors.ErrBadStatus)
+		}
+	}
+
 	if err != nil {
 		if clientErrors.IsTemporary(err) {
 			return err // This will trigger a retry for temporary errors
 		}
 		return backoff.Permanent(err) // This will stop retries for permanent errors
 	}
+
 	return nil // Success, stop retrying
 }
 

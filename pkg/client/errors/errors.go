@@ -21,7 +21,6 @@ var (
 func IsTemporary(err error) bool {
 	return (errors.Is(err, ErrNetwork) ||
 		errors.Is(err, ErrTimeout) ||
-		errors.Is(err, ErrBadStatus) ||
 		errors.Is(err, ErrTemporary)) &&
 		!errors.Is(err, ErrPermanent)
 }
