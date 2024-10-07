@@ -61,8 +61,15 @@ func (m *RetryMiddleware) Process(ctx context.Context, httpClient *http.Client, 
 			).Warn("Retrying request")
 		},
 	)
+
+	// If the retry failed, return the error
 	if retryErr != nil {
 		return nil, fmt.Errorf("%w: %w", ErrRetryFailed, retryErr)
+	}
+
+	// If the request failed, return the error
+	if err != nil {
+		return nil, err
 	}
 
 	return resp, nil
