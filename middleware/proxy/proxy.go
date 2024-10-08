@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"sync"
+	"sync/atomic"
 
 	"github.com/jaxron/axonet/pkg/client/logger"
 	"github.com/jaxron/axonet/pkg/client/middleware"
@@ -21,18 +22,24 @@ const (
 
 // ProxyMiddleware manages proxy rotation for HTTP requests.
 type ProxyMiddleware struct {
-	mu      sync.RWMutex
-	proxies []*url.URL
-	logger  logger.Logger
+	proxies    []*url.URL
+	proxyCount int
+	current    atomic.Uint64
+	mu         sync.RWMutex
+	logger     logger.Logger
 }
 
 // New creates a new ProxyMiddleware instance.
 func New(proxies []*url.URL) *ProxyMiddleware {
-	return &ProxyMiddleware{
-		mu:      sync.RWMutex{},
-		proxies: proxies,
-		logger:  &logger.NoOpLogger{},
+	m := &ProxyMiddleware{
+		proxies:    proxies,
+		proxyCount: len(proxies),
+		current:    atomic.Uint64{},
+		mu:         sync.RWMutex{},
+		logger:     &logger.NoOpLogger{},
 	}
+	m.current.Store(0)
+	return m
 }
 
 // Process applies proxy logic before passing the request to the next middleware.
@@ -64,17 +71,16 @@ func (m *ProxyMiddleware) Process(ctx context.Context, httpClient *http.Client, 
 
 // selectProxy chooses the next proxy to use.
 func (m *ProxyMiddleware) selectProxy() *url.URL {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 
-	if len(m.proxies) == 0 {
+	if m.proxyCount == 0 {
 		return nil
 	}
 
-	proxy := m.proxies[0]
-	m.proxies = append(m.proxies[1:], proxy)
-
-	return proxy
+	current := m.current.Add(1) - 1
+	index := current % uint64(m.proxyCount) // #nosec G115
+	return m.proxies[index]
 }
 
 // applyProxyToClient applies the proxy to the given http.Client.
@@ -120,6 +126,8 @@ func (m *ProxyMiddleware) UpdateProxies(newProxies []*url.URL) {
 	defer m.mu.Unlock()
 
 	m.proxies = newProxies
+	m.proxyCount = len(newProxies)
+	m.current.Store(0)
 
 	m.logger.WithFields(logger.Int("proxy_count", len(newProxies))).Debug("Proxies updated")
 }
@@ -129,7 +137,7 @@ func (m *ProxyMiddleware) GetProxyCount() int {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	return len(m.proxies)
+	return m.proxyCount
 }
 
 // SetLogger sets the logger for the middleware.
