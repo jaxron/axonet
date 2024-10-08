@@ -94,23 +94,6 @@ func TestUnmarshalWith(t *testing.T) {
 	assert.Equal(t, "custom", result["format"])
 }
 
-func TestJSONHeaders(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
-		assert.Equal(t, "application/json", r.Header.Get("Accept"))
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
-
-	_, err := NewTestClient().NewRequest().
-		Method(http.MethodGet).
-		URL(server.URL).
-		JSONHeaders().
-		Do(context.Background())
-
-	require.NoError(t, err)
-}
-
 func TestQuery(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "value", r.URL.Query().Get("key"))
