@@ -4,7 +4,7 @@ go 1.23.1
 
 require (
 	github.com/cenkalti/backoff/v4 v4.3.0
-	github.com/jaxron/axonet v0.0.0-20241002060205-163e5b96ab1b
+	github.com/jaxron/axonet v0.0.0-20241009045600-f73d347dcdfe
 	github.com/stretchr/testify v1.9.0
 )
 

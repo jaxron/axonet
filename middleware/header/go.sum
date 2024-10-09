@@ -2,6 +2,10 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/jaxron/axonet v0.0.0-20241002060205-163e5b96ab1b h1:8nTu08ZteWJg7cnT70uIGE+uX9nPCFWsKdpCeUjjk0g=
 github.com/jaxron/axonet v0.0.0-20241002060205-163e5b96ab1b/go.mod h1:TogmFXw5fTZXMqRRxGvJqlEVN4rtDRUEA7YkBfx5ehw=
+github.com/jaxron/axonet v0.0.0-20241008024308-45575184723a h1:2ZiHtv7Xd/KnL1le84O+CW+6PtPPJ8GVO/h7aWRIpxw=
+github.com/jaxron/axonet v0.0.0-20241008024308-45575184723a/go.mod h1:92DgyJvbzpypIYiDDCbdEQiyDKQ6vUJN/i948GmChhI=
+github.com/jaxron/axonet v0.0.0-20241009045600-f73d347dcdfe h1:VOG6pe/Jku50erxZaw1w8b8f/NWtZAc8E80UQzYeWPQ=
+github.com/jaxron/axonet v0.0.0-20241009045600-f73d347dcdfe/go.mod h1:92DgyJvbzpypIYiDDCbdEQiyDKQ6vUJN/i948GmChhI=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/stretchr/testify v1.9.0 h1:HtqpIVDClZ4nwg75+f6Lvsy/wHu+3BoSGCbBAcpTsTg=
