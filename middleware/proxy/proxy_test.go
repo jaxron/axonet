@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"reflect"
 	"testing"
 
 	"github.com/jaxron/axonet/middleware/proxy"
@@ -205,5 +206,58 @@ func TestProxyMiddleware(t *testing.T) {
 			_, err := middleware.Process(ctx, originalClient, req, handler)
 			require.NoError(t, err)
 		})
+	})
+
+	t.Run("Shuffle proxies", func(t *testing.T) {
+		t.Parallel()
+
+		proxy1, _ := url.Parse("http://proxy1.example.com")
+		proxy2, _ := url.Parse("http://proxy2.example.com")
+		proxy3, _ := url.Parse("http://proxy3.example.com")
+		proxies := []*url.URL{proxy1, proxy2, proxy3}
+
+		middleware := proxy.New(proxies)
+		middleware.SetLogger(logger.NewBasicLogger())
+
+		// Record the initial order
+		initialOrder := make([]string, len(proxies))
+		for i, p := range proxies {
+			initialOrder[i] = p.String()
+		}
+
+		orderChanged := false
+		for i := 0; i < 10; i++ {
+			// Shuffle the proxies
+			middleware.Shuffle()
+
+			// Check if the order has changed
+			handler := func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
+				transport, ok := httpClient.Transport.(*http.Transport)
+				require.True(t, ok)
+				assert.NotNil(t, transport.Proxy)
+				proxyURL, err := transport.Proxy(req)
+				require.NoError(t, err)
+				return &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Proxy-Used": []string{proxyURL.String()}}}, nil
+			}
+
+			newOrder := make([]string, len(proxies))
+			for j := range len(proxies) {
+				req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
+				resp, err := middleware.Process(context.Background(), &http.Client{}, req, handler)
+				require.NoError(t, err)
+				newOrder[j] = resp.Header.Get("Proxy-Used")
+			}
+
+			if !assert.ElementsMatch(t, initialOrder, newOrder) {
+				t.Fatalf("Proxies are not the same after shuffling")
+			}
+
+			if !reflect.DeepEqual(initialOrder, newOrder) {
+				orderChanged = true
+				break
+			}
+		}
+
+		assert.True(t, orderChanged, "Proxy order should have changed after multiple shuffle attempts")
 	})
 }

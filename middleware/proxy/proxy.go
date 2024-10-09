@@ -3,10 +3,12 @@ package proxy
 import (
 	"context"
 	"errors"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/jaxron/axonet/pkg/client/logger"
 	"github.com/jaxron/axonet/pkg/client/middleware"
@@ -130,6 +132,18 @@ func (m *ProxyMiddleware) UpdateProxies(newProxies []*url.URL) {
 	m.current.Store(0)
 
 	m.logger.WithFields(logger.Int("proxy_count", len(newProxies))).Debug("Proxies updated")
+}
+
+// Shuffle randomizes the order of the proxies.
+func (m *ProxyMiddleware) Shuffle() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	rand.New(rand.NewSource(time.Now().UnixNano())).Shuffle(len(m.proxies), func(i, j int) {
+		m.proxies[i], m.proxies[j] = m.proxies[j], m.proxies[i]
+	})
+
+	m.logger.Debug("Proxies shuffled")
 }
 
 // GetProxyCount returns the current number of proxies in the list.

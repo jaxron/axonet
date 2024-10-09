@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 
 	"github.com/jaxron/axonet/middleware/cookie"
@@ -236,5 +237,56 @@ func TestCookieMiddleware(t *testing.T) {
 
 		reqCookies := req.Cookies()
 		assert.Len(t, reqCookies, 0, "Expected no cookies when middleware is disabled")
+	})
+
+	t.Run("Shuffle cookies", func(t *testing.T) {
+		t.Parallel()
+
+		cookies := [][]*http.Cookie{
+			{&http.Cookie{Name: "session", Value: "1"}},
+			{&http.Cookie{Name: "session", Value: "2"}},
+			{&http.Cookie{Name: "session", Value: "3"}},
+		}
+
+		middleware := cookie.New(cookies)
+		middleware.SetLogger(logger.NewBasicLogger())
+
+		// Record the initial order
+		initialOrder := make([]string, len(cookies))
+		for i, c := range cookies {
+			initialOrder[i] = c[0].Value
+		}
+
+		orderChanged := false
+		for i := 0; i < 10; i++ {
+			// Shuffle the cookies
+			middleware.Shuffle()
+
+			// Check if the order has changed
+			handler := func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
+				cookies := req.Cookies()
+				require.Len(t, cookies, 1)
+				return &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Cookie-Used": []string{cookies[0].Value}}}, nil
+			}
+
+			newOrder := make([]string, len(cookies))
+			for j := range len(cookies) {
+				req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
+				resp, err := middleware.Process(context.Background(), &http.Client{}, req, handler)
+				require.NoError(t, err)
+				newOrder[j] = resp.Header.Get("Cookie-Used")
+			}
+
+			if !assert.ElementsMatch(t, initialOrder, newOrder) {
+				t.Fatalf("Cookies are not the same after shuffling")
+			}
+
+			if !reflect.DeepEqual(initialOrder, newOrder) {
+				orderChanged = true
+				break
+			}
+		}
+
+		assert.True(t, orderChanged, "Cookie order should have changed after multiple shuffle attempts")
 	})
 }

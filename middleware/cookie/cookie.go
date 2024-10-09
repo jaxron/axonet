@@ -2,9 +2,11 @@ package cookie
 
 import (
 	"context"
+	"math/rand"
 	"net/http"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/jaxron/axonet/pkg/client/logger"
 	"github.com/jaxron/axonet/pkg/client/middleware"
@@ -81,15 +83,27 @@ func (m *CookieMiddleware) selectCookieSet() []*http.Cookie {
 }
 
 // UpdateCookies updates the list of cookies at runtime.
-func (m *CookieMiddleware) UpdateCookies(cookies [][]*http.Cookie) {
+func (m *CookieMiddleware) UpdateCookies(newCookies [][]*http.Cookie) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.cookies = cookies
-	m.cookieCount = len(cookies)
+	m.cookies = newCookies
+	m.cookieCount = len(newCookies)
 	m.current.Store(0)
 
-	m.logger.WithFields(logger.Int("cookie_sets", len(cookies))).Debug("Cookies updated")
+	m.logger.WithFields(logger.Int("cookie_sets", len(newCookies))).Debug("Cookies updated")
+}
+
+// Shuffle randomizes the order of the cookie sets.
+func (m *CookieMiddleware) Shuffle() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	rand.New(rand.NewSource(time.Now().UnixNano())).Shuffle(len(m.cookies), func(i, j int) {
+		m.cookies[i], m.cookies[j] = m.cookies[j], m.cookies[i]
+	})
+
+	m.logger.Debug("Cookies shuffled")
 }
 
 // GetCookieCount returns the current number of cookie sets in the list.
