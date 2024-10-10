@@ -23,7 +23,7 @@ func NewClient(opts ...Option) *Client {
 			Transport:     http.DefaultTransport,
 			CheckRedirect: nil,
 			Jar:           nil,
-			Timeout:       0, // No client timeout as context timeout is used
+			Timeout:       0,
 		},
 	}
 

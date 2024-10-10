@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/jaxron/axonet/pkg/client"
 	"github.com/jaxron/axonet/pkg/client/logger"
@@ -29,6 +30,38 @@ func TestWithMiddleware(t *testing.T) {
 
 	require.NoError(t, err)
 	mockMiddleware.AssertExpectations(t)
+}
+
+func TestWithTimeout(t *testing.T) {
+	// Create a test server that sleeps for 100ms
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(100 * time.Millisecond)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	// Test with a timeout shorter than the server response time
+	c := NewTestClient(client.WithTimeout(50 * time.Millisecond))
+
+	_, err := c.NewRequest().
+		Method(http.MethodGet).
+		URL(server.URL).
+		Do(context.Background())
+
+	// Expect a timeout error
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "context deadline exceeded")
+
+	// Test with a timeout longer than the server response time
+	c = NewTestClient(client.WithTimeout(200 * time.Millisecond))
+
+	_, err = c.NewRequest().
+		Method(http.MethodGet).
+		URL(server.URL).
+		Do(context.Background())
+
+	// Expect no error
+	require.NoError(t, err)
 }
 
 func TestWithLogger(t *testing.T) {

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/jaxron/axonet/pkg/client/errors"
 	"github.com/jaxron/axonet/pkg/client/logger"
@@ -20,6 +21,13 @@ type Option func(*Client)
 func WithMiddleware(middleware middleware.Middleware) Option {
 	return func(c *Client) {
 		c.middlewareChain.Then(middleware)
+	}
+}
+
+// WithTimeout sets the timeout for the Client.
+func WithTimeout(timeout time.Duration) Option {
+	return func(c *Client) {
+		c.httpClient.Timeout = timeout
 	}
 }
 
