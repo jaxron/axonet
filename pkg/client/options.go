@@ -17,10 +17,10 @@ import (
 // Option is a function type that modifies the Client configuration.
 type Option func(*Client)
 
-// WithMiddleware adds or updates the middleware for the Client.
-func WithMiddleware(middleware middleware.Middleware) Option {
+// WithMiddleware adds or updates the middleware for the Client with a specified priority.
+func WithMiddleware(priority int, middleware middleware.Middleware) Option {
 	return func(c *Client) {
-		c.middlewareChain.Then(middleware)
+		c.middlewareChain.Then(priority, middleware)
 	}
 }
 

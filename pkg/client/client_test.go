@@ -123,7 +123,7 @@ func TestClientDo(t *testing.T) {
 		middleware.On("Process", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 			Return(nil, expectedError)
 
-		client := NewTestClient(client.WithMiddleware(middleware))
+		client := NewTestClient(client.WithMiddleware(1, middleware))
 
 		_, err := client.NewRequest().
 			Method(http.MethodGet).
@@ -147,7 +147,7 @@ func TestClientDo(t *testing.T) {
 			}).
 			Return(nil, context.Canceled)
 
-		client := NewTestClient(client.WithMiddleware(middleware))
+		client := NewTestClient(client.WithMiddleware(1, middleware))
 
 		ctx, cancel := context.WithCancel(context.Background())
 		go func() {
@@ -163,5 +163,61 @@ func TestClientDo(t *testing.T) {
 		require.Error(t, err)
 		assert.True(t, errors.Is(err, context.Canceled))
 		middleware.AssertExpectations(t)
+	})
+
+	t.Run("Middleware execution order", func(t *testing.T) {
+		t.Parallel()
+
+		executionOrder := []string{}
+
+		type HighPriorityMiddleware struct{ MockMiddleware }
+		type MediumPriorityMiddleware struct{ MockMiddleware }
+		type LowPriorityMiddleware struct{ MockMiddleware }
+
+		createMiddleware := func(name string, priority int) clientMiddleware.Middleware {
+			var m clientMiddleware.Middleware
+			switch priority {
+			case 100:
+				m = &HighPriorityMiddleware{}
+			case 50:
+				m = &MediumPriorityMiddleware{}
+			case 10:
+				m = &LowPriorityMiddleware{}
+			default:
+				m = &MockMiddleware{}
+			}
+
+			mockMiddleware := m.(interface {
+				On(string, ...interface{}) *mock.Call
+			})
+			mockMiddleware.On("SetLogger", mock.AnythingOfType("*logger.BasicLogger")).Return()
+			mockMiddleware.On("Process", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+				Run(func(args mock.Arguments) {
+					executionOrder = append(executionOrder, name)
+					next := args.Get(3).(clientMiddleware.NextFunc)
+					next(args.Get(0).(context.Context), args.Get(1).(*http.Client), args.Get(2).(*http.Request))
+				}).
+				Return(&http.Response{StatusCode: http.StatusOK}, nil)
+			return m
+		}
+
+		mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		}))
+		defer mockServer.Close()
+
+		client := NewTestClient(
+			client.WithMiddleware(100, createMiddleware("High", 100)),
+			client.WithMiddleware(50, createMiddleware("Medium", 50)),
+			client.WithMiddleware(10, createMiddleware("Low", 10)),
+		)
+
+		_, err := client.NewRequest().
+			Method(http.MethodGet).
+			URL(mockServer.URL).
+			Do(context.Background())
+
+		require.NoError(t, err)
+		assert.Equal(t, []string{"High", "Medium", "Low"}, executionOrder)
 	})
 }

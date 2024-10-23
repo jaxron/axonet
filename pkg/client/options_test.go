@@ -21,7 +21,7 @@ func TestWithMiddleware(t *testing.T) {
 	mockMiddleware.On("Process", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return(&http.Response{StatusCode: http.StatusOK}, nil)
 
-	c := NewTestClient(client.WithMiddleware(mockMiddleware))
+	c := NewTestClient(client.WithMiddleware(1, mockMiddleware))
 
 	_, err := c.NewRequest().
 		Method(http.MethodGet).

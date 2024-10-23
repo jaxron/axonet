@@ -5,23 +5,32 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"sort"
 
 	"github.com/jaxron/axonet/pkg/client/errors"
 	"github.com/jaxron/axonet/pkg/client/logger"
 )
 
+// PrioritizedMiddleware wraps a Middleware with a priority value.
+type PrioritizedMiddleware struct {
+	Middleware Middleware
+	Priority   int
+}
+
 // Chain represents a chain of middleware.
 type Chain struct {
-	middlewares []Middleware
+	middlewares []PrioritizedMiddleware
 	logger      logger.Logger
 }
 
 // NewChain creates a new middleware chain.
-func NewChain(logger logger.Logger, middlewares ...Middleware) *Chain {
-	return &Chain{
+func NewChain(logger logger.Logger, middlewares ...PrioritizedMiddleware) *Chain {
+	chain := &Chain{
 		middlewares: middlewares,
 		logger:      logger,
 	}
+	chain.sortMiddlewares()
+	return chain
 }
 
 // Len returns the number of middlewares in the chain.
@@ -31,29 +40,19 @@ func (c *Chain) Len() int {
 
 // Middlewares returns the slice of middlewares.
 func (c *Chain) Middlewares() []Middleware {
-	return c.middlewares
+	result := make([]Middleware, len(c.middlewares))
+	for i, pm := range c.middlewares {
+		result[i] = pm.Middleware
+	}
+	return result
 }
 
 // Then adds middleware to the chain, replacing any existing middleware of the same type.
-func (c *Chain) Then(middlewares ...Middleware) {
-	seen := make(map[reflect.Type]Middleware)
-
-	// Add existing middlewares to the map
-	for _, m := range c.middlewares {
-		seen[reflect.TypeOf(m)] = m
-	}
-
-	// Add or replace middlewares
+func (c *Chain) Then(priority int, middlewares ...Middleware) {
 	for _, m := range middlewares {
-		seen[reflect.TypeOf(m)] = m
-		m.SetLogger(c.logger)
+		c.addOrReplace(priority, m)
 	}
-
-	// Create a new slice with unique middlewares
-	c.middlewares = make([]Middleware, 0, len(seen))
-	for _, m := range seen {
-		c.middlewares = append(c.middlewares, m)
-	}
+	c.sortMiddlewares()
 }
 
 // Process runs the request through all middleware in the chain.
@@ -69,10 +68,11 @@ func (c *Chain) Process(ctx context.Context, httpClient *http.Client, req *http.
 
 // logMiddlewareChain logs the available middleware in the chain.
 func (c *Chain) logMiddlewareChain() {
-	for i, m := range c.middlewares {
+	for i, pm := range c.middlewares {
 		c.logger.WithFields(
 			logger.Int("index", i),
-			logger.String("type", reflect.TypeOf(m).String()),
+			logger.String("type", reflect.TypeOf(pm.Middleware).String()),
+			logger.Int("priority", pm.Priority),
 		).Debug("Middleware in chain")
 	}
 }
@@ -85,7 +85,7 @@ func (c *Chain) processMiddleware(ctx context.Context, httpClient *http.Client, 
 	}
 
 	// Otherwise, apply the middleware and continue
-	return c.middlewares[index].Process(ctx, httpClient, req, func(ctx context.Context, client *http.Client, req *http.Request) (*http.Response, error) {
+	return c.middlewares[index].Middleware.Process(ctx, httpClient, req, func(ctx context.Context, client *http.Client, req *http.Request) (*http.Response, error) {
 		return c.processMiddleware(ctx, client, req, index+1)
 	})
 }
@@ -117,10 +117,30 @@ func (c *Chain) performRequest(ctx context.Context, httpClient *http.Client, req
 	return resp, nil
 }
 
+// addOrReplace adds a new middleware or replaces an existing one of the same type.
+func (c *Chain) addOrReplace(priority int, m Middleware) {
+	for i, pm := range c.middlewares {
+		if reflect.TypeOf(pm.Middleware) == reflect.TypeOf(m) {
+			c.middlewares[i] = PrioritizedMiddleware{Middleware: m, Priority: priority}
+			m.SetLogger(c.logger)
+			return
+		}
+	}
+	c.middlewares = append(c.middlewares, PrioritizedMiddleware{Middleware: m, Priority: priority})
+	m.SetLogger(c.logger)
+}
+
+// sortMiddlewares sorts the middlewares by priority (descending order).
+func (c *Chain) sortMiddlewares() {
+	sort.Slice(c.middlewares, func(i, j int) bool {
+		return c.middlewares[i].Priority > c.middlewares[j].Priority
+	})
+}
+
 // SetLogger updates the logger for all middleware in the chain.
 func (c *Chain) SetLogger(l logger.Logger) {
-	for _, m := range c.middlewares {
-		m.SetLogger(l)
+	for _, pm := range c.middlewares {
+		pm.Middleware.SetLogger(l)
 	}
 	c.logger = l
 }
