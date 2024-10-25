@@ -1,4 +1,4 @@
-package rediscache
+package redis_test
 
 import (
 	"bytes"
@@ -6,30 +6,30 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/bytedance/sonic"
+	redis "github.com/jaxron/axonet/middleware/rediscache"
 	"github.com/jaxron/axonet/pkg/client/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestRedisCacheMiddleware(t *testing.T) {
+func TestRedisMiddleware(t *testing.T) {
 	t.Parallel()
 
 	t.Run("Generate unique keys for different requests", func(t *testing.T) {
-		middleware := &RedisCacheMiddleware{
-			logger:     logger.NewBasicLogger(),
-			expiration: 5 * time.Minute,
-		}
+		t.Parallel()
+
+		middleware := redis.RedisMiddleware{}
+		middleware.SetLogger(logger.NewBasicLogger())
 
 		req1 := httptest.NewRequest(http.MethodGet, "http://example.com/path1", nil)
 		req2 := httptest.NewRequest(http.MethodGet, "http://example.com/path2", nil)
 		req3 := httptest.NewRequest(http.MethodPost, "http://example.com/path1", nil)
 
-		key1 := middleware.generateKey(req1)
-		key2 := middleware.generateKey(req2)
-		key3 := middleware.generateKey(req3)
+		key1 := middleware.GenerateKey(req1)
+		key2 := middleware.GenerateKey(req2)
+		key3 := middleware.GenerateKey(req3)
 
 		assert.NotEqual(t, key1, key2, "Keys for different paths should be different")
 		assert.NotEqual(t, key1, key3, "Keys for different methods should be different")
@@ -37,10 +37,10 @@ func TestRedisCacheMiddleware(t *testing.T) {
 	})
 
 	t.Run("Cache and reconstruct response", func(t *testing.T) {
-		middleware := &RedisCacheMiddleware{
-			logger:     logger.NewBasicLogger(),
-			expiration: 5 * time.Minute,
-		}
+		t.Parallel()
+
+		middleware := redis.RedisMiddleware{}
+		middleware.SetLogger(logger.NewBasicLogger())
 
 		originalResp := &http.Response{
 			Status:           "200 OK",
@@ -59,7 +59,7 @@ func TestRedisCacheMiddleware(t *testing.T) {
 		originalResp.Body.Close()
 		originalResp.Body = io.NopCloser(bytes.NewReader(body))
 
-		cachedResp := &cachedResponse{
+		cachedResp := &redis.CachedResponse{
 			Status:           originalResp.Status,
 			StatusCode:       originalResp.StatusCode,
 			Header:           originalResp.Header,
@@ -71,7 +71,7 @@ func TestRedisCacheMiddleware(t *testing.T) {
 		}
 
 		// Reconstruct the response
-		reconstructedResp := middleware.reconstructResponse(cachedResp)
+		reconstructedResp := middleware.ReconstructResponse(cachedResp)
 
 		assert.Equal(t, originalResp.Status, reconstructedResp.Status)
 		assert.Equal(t, originalResp.StatusCode, reconstructedResp.StatusCode)
@@ -88,8 +88,12 @@ func TestRedisCacheMiddleware(t *testing.T) {
 }
 
 func TestCachedResponseSerialization(t *testing.T) {
+	t.Parallel()
+
 	t.Run("Marshal and unmarshal cachedResponse", func(t *testing.T) {
-		original := &cachedResponse{
+		t.Parallel()
+
+		original := &redis.CachedResponse{
 			Status:           "200 OK",
 			StatusCode:       http.StatusOK,
 			Header:           http.Header{"Content-Type": []string{"application/json"}},
@@ -105,7 +109,7 @@ func TestCachedResponseSerialization(t *testing.T) {
 		require.NoError(t, err)
 
 		// Unmarshal
-		var reconstructed cachedResponse
+		var reconstructed redis.CachedResponse
 		err = sonic.Unmarshal(data, &reconstructed)
 		require.NoError(t, err)
 

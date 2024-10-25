@@ -1,4 +1,4 @@
-package rediscache
+package redis
 
 import (
 	"bytes"
@@ -15,15 +15,15 @@ import (
 	"github.com/redis/rueidis"
 )
 
-// RedisCacheMiddleware implements a caching middleware using Redis.
-type RedisCacheMiddleware struct {
+// RedisMiddleware implements a caching middleware using Redis.
+type RedisMiddleware struct {
 	client     rueidis.Client
 	logger     logger.Logger
 	expiration time.Duration
 }
 
-// cachedResponse represents the structure of a cached HTTP response.
-type cachedResponse struct {
+// CachedResponse represents the structure of a cached HTTP response.
+type CachedResponse struct {
 	Status           string      `json:"status"`
 	StatusCode       int         `json:"statusCode"`
 	Header           http.Header `json:"header"`
@@ -34,29 +34,24 @@ type cachedResponse struct {
 	Trailer          http.Header `json:"trailer"`
 }
 
-// New creates a new RedisCacheMiddleware instance.
-func New(clientOptions rueidis.ClientOption, expiration time.Duration) (*RedisCacheMiddleware, error) {
-	client, err := rueidis.NewClient(clientOptions)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create Redis client: %w", err)
-	}
-
-	return &RedisCacheMiddleware{
-		client:     client,
+// New creates a new RedisMiddleware instance.
+func New(redisClient rueidis.Client, expiration time.Duration) *RedisMiddleware {
+	return &RedisMiddleware{
+		client:     redisClient,
 		logger:     &logger.NoOpLogger{},
 		expiration: expiration,
-	}, nil
+	}
 }
 
 // Process implements the middleware.Middleware interface.
-func (m *RedisCacheMiddleware) Process(ctx context.Context, httpClient *http.Client, req *http.Request, next middleware.NextFunc) (*http.Response, error) {
-	key := m.generateKey(req)
+func (m *RedisMiddleware) Process(ctx context.Context, httpClient *http.Client, req *http.Request, next middleware.NextFunc) (*http.Response, error) {
+	key := m.GenerateKey(req)
 
 	// Try to get the cached response
 	cachedResp, err := m.getFromCache(ctx, key)
 	if err == nil {
 		m.logger.Debug("Cache hit")
-		return m.reconstructResponse(cachedResp), nil
+		return m.ReconstructResponse(cachedResp), nil
 	}
 
 	// Cache miss, proceed with the request
@@ -85,44 +80,19 @@ func (m *RedisCacheMiddleware) Process(ctx context.Context, httpClient *http.Cli
 }
 
 // SetLogger sets the logger for the middleware.
-func (m *RedisCacheMiddleware) SetLogger(l logger.Logger) {
+func (m *RedisMiddleware) SetLogger(l logger.Logger) {
 	m.logger = l
 }
 
-// generateKey creates a unique cache key based on the request method, URL, headers, and body.
-func (m *RedisCacheMiddleware) generateKey(req *http.Request) string {
-	h := xxhash.New()
-	h.Write([]byte(req.Method))
-	h.Write([]byte(req.URL.String()))
-	for key, values := range req.Header {
-		h.Write([]byte(key))
-		for _, value := range values {
-			h.Write([]byte(value))
-		}
-	}
-
-	if req.Body != nil {
-		body, err := io.ReadAll(req.Body)
-		if err != nil {
-			m.logger.WithFields(logger.String("error", err.Error())).Error("Failed to read request body for caching")
-		}
-
-		h.Write(body)
-		req.Body = io.NopCloser(bytes.NewReader(body))
-	}
-
-	return fmt.Sprintf("cache:%x", h.Sum64())
-}
-
 // getFromCache retrieves a cached response from Redis.
-func (m *RedisCacheMiddleware) getFromCache(ctx context.Context, key string) (*cachedResponse, error) {
+func (m *RedisMiddleware) getFromCache(ctx context.Context, key string) (*CachedResponse, error) {
 	cmd := m.client.B().Get().Key(key).Build()
 	result, err := m.client.Do(ctx, cmd).AsBytes()
 	if err != nil {
 		return nil, err
 	}
 
-	var cachedResp cachedResponse
+	var cachedResp CachedResponse
 	err = sonic.Unmarshal(result, &cachedResp)
 	if err != nil {
 		return nil, err
@@ -132,9 +102,9 @@ func (m *RedisCacheMiddleware) getFromCache(ctx context.Context, key string) (*c
 }
 
 // cacheResponse stores the HTTP response in Redis.
-func (m *RedisCacheMiddleware) cacheResponse(ctx context.Context, key string, resp *http.Response, bodyBytes []byte) {
+func (m *RedisMiddleware) cacheResponse(ctx context.Context, key string, resp *http.Response, bodyBytes []byte) {
 	// Create a cached response
-	cachedResp := cachedResponse{
+	cachedResp := CachedResponse{
 		Status:           resp.Status,
 		StatusCode:       resp.StatusCode,
 		Header:           resp.Header,
@@ -158,8 +128,33 @@ func (m *RedisCacheMiddleware) cacheResponse(ctx context.Context, key string, re
 	}
 }
 
-// reconstructResponse creates an http.Response from a cached response.
-func (m *RedisCacheMiddleware) reconstructResponse(cachedResp *cachedResponse) *http.Response {
+// GenerateKey creates a unique cache key based on the request method, URL, headers, and body.
+func (m *RedisMiddleware) GenerateKey(req *http.Request) string {
+	h := xxhash.New()
+	h.Write([]byte(req.Method))
+	h.Write([]byte(req.URL.String()))
+	for key, values := range req.Header {
+		h.Write([]byte(key))
+		for _, value := range values {
+			h.Write([]byte(value))
+		}
+	}
+
+	if req.Body != nil {
+		body, err := io.ReadAll(req.Body)
+		if err != nil {
+			m.logger.WithFields(logger.String("error", err.Error())).Error("Failed to read request body for caching")
+		}
+
+		h.Write(body)
+		req.Body = io.NopCloser(bytes.NewReader(body))
+	}
+
+	return fmt.Sprintf("cache:%x", h.Sum64())
+}
+
+// ReconstructResponse creates an http.Response from a cached response.
+func (m *RedisMiddleware) ReconstructResponse(cachedResp *CachedResponse) *http.Response {
 	return &http.Response{
 		Status:           cachedResp.Status,
 		StatusCode:       cachedResp.StatusCode,

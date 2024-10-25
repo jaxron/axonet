@@ -5,7 +5,7 @@ use (
     ./middleware/circuitbreaker
     ./middleware/ratelimit
     ./middleware/retry
-    ./middleware/rediscache
+    ./middleware/redis
     ./middleware/cookie
     ./middleware/header
     ./middleware/proxy

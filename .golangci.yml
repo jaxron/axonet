@@ -2,7 +2,7 @@ run:
   concurrency: 0
   allow-parallel-runners: true
   allow-serial-runners: true
-  tests: false
+  tests: true
   go: '1.23'
 
 linters:
@@ -19,6 +19,7 @@ linters:
     - bodyclose # Lots of false positives
     - forcetypeassert # Not needed
     - mnd # Not needed
+    - exhaustruct # Not needed
     - gomnd # Deprecated
     - exportloopref # Deprecated
     - execinquery # Deprecated
