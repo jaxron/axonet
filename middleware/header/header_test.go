@@ -66,11 +66,10 @@ func TestHeaderMiddleware(t *testing.T) {
 		middleware := header.New(http.Header{})
 		middleware.SetLogger(logger.NewBasicLogger())
 
-		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
-		originalHeaderLen := len(req.Header)
+		originalReq := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
 
-		resp, err := middleware.Process(context.Background(), &http.Client{}, req, func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
-			assert.Equal(t, originalHeaderLen, len(req.Header))
+		resp, err := middleware.Process(context.Background(), &http.Client{}, originalReq, func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
+			assert.Len(t, originalReq.Header, len(req.Header))
 			return &http.Response{StatusCode: http.StatusOK}, nil
 		})
 

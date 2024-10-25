@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCookieMiddleware(t *testing.T) {
+func TestCookieMiddleware(t *testing.T) { //nolint:funlen,maintidx
 	t.Parallel()
 
 	t.Run("Apply cookies to request", func(t *testing.T) {
@@ -38,7 +38,7 @@ func TestCookieMiddleware(t *testing.T) {
 		}
 
 		// Multiple requests to check rotation
-		for i := 0; i < 10; i++ {
+		for range 10 {
 			req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
 			resp, err := middleware.Process(context.Background(), &http.Client{}, req, handler)
 			require.NoError(t, err)
@@ -68,7 +68,7 @@ func TestCookieMiddleware(t *testing.T) {
 		}
 
 		usedValues := make(map[string]bool)
-		for i := 0; i < 30; i++ {
+		for range 30 {
 			req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
 			_, err := middleware.Process(context.Background(), &http.Client{}, req, handler)
 			require.NoError(t, err)
@@ -115,7 +115,7 @@ func TestCookieMiddleware(t *testing.T) {
 
 		// Check that both new cookie sets are used
 		usedValues := make(map[string]bool)
-		for i := 0; i < 20; i++ {
+		for range 20 {
 			req = httptest.NewRequest(http.MethodGet, "http://example.com", nil)
 			_, err = middleware.Process(context.Background(), &http.Client{}, req, handler)
 			require.NoError(t, err)
@@ -236,7 +236,7 @@ func TestCookieMiddleware(t *testing.T) {
 		require.NoError(t, err)
 
 		reqCookies := req.Cookies()
-		assert.Len(t, reqCookies, 0, "Expected no cookies when middleware is disabled")
+		assert.Empty(t, reqCookies, "Expected no cookies when middleware is disabled")
 	})
 
 	t.Run("Shuffle cookies", func(t *testing.T) {
@@ -258,7 +258,7 @@ func TestCookieMiddleware(t *testing.T) {
 		}
 
 		orderChanged := false
-		for i := 0; i < 10; i++ {
+		for range 10 {
 			// Shuffle the cookies
 			middleware.Shuffle()
 
@@ -270,11 +270,11 @@ func TestCookieMiddleware(t *testing.T) {
 			}
 
 			newOrder := make([]string, len(cookies))
-			for j := range len(cookies) {
+			for i := range cookies {
 				req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
 				resp, err := middleware.Process(context.Background(), &http.Client{}, req, handler)
 				require.NoError(t, err)
-				newOrder[j] = resp.Header.Get("Cookie-Used")
+				newOrder[i] = resp.Header.Get("Cookie-Used")
 			}
 
 			if !assert.ElementsMatch(t, initialOrder, newOrder) {

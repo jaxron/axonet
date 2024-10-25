@@ -36,7 +36,7 @@ func TestRetryMiddleware(t *testing.T) {
 	t.Run("Retry on temporary error", func(t *testing.T) {
 		t.Parallel()
 
-		attempts := 0
+		attempts := uint64(0)
 		maxAttempts := uint64(3)
 		middleware := retry.New(maxAttempts, 10*time.Millisecond, 100*time.Millisecond)
 		middleware.SetLogger(logger.NewBasicLogger())
@@ -44,7 +44,7 @@ func TestRetryMiddleware(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
 		handler := func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
 			attempts++
-			if attempts < int(maxAttempts) {
+			if attempts < maxAttempts {
 				return nil, errors.ErrTemporary
 			}
 			return &http.Response{StatusCode: http.StatusOK}, nil
@@ -53,7 +53,7 @@ func TestRetryMiddleware(t *testing.T) {
 		resp, err := middleware.Process(context.Background(), &http.Client{}, req, handler)
 		require.NoError(t, err)
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
-		assert.Equal(t, int(maxAttempts), attempts)
+		assert.Equal(t, maxAttempts, attempts)
 	})
 
 	t.Run("Fail after max retries", func(t *testing.T) {
@@ -73,7 +73,7 @@ func TestRetryMiddleware(t *testing.T) {
 		resp, err := middleware.Process(context.Background(), &http.Client{}, req, handler)
 		require.Error(t, err)
 		assert.Nil(t, resp)
-		assert.ErrorIs(t, err, errors.ErrTemporary)
+		require.ErrorIs(t, err, errors.ErrTemporary)
 		assert.Equal(t, int(maxAttempts)+1, attempts) // The middleware makes one more attempt than maxAttempts
 	})
 
@@ -93,7 +93,7 @@ func TestRetryMiddleware(t *testing.T) {
 		resp, err := middleware.Process(context.Background(), &http.Client{}, req, handler)
 		require.Error(t, err)
 		assert.Nil(t, resp)
-		assert.ErrorIs(t, err, errors.ErrPermanent)
+		require.ErrorIs(t, err, errors.ErrPermanent)
 		assert.Equal(t, 1, attempts)
 	})
 
@@ -117,7 +117,7 @@ func TestRetryMiddleware(t *testing.T) {
 		resp, err := middleware.Process(ctx, &http.Client{}, req, handler)
 		require.Error(t, err)
 		assert.Nil(t, resp)
-		assert.ErrorIs(t, err, context.Canceled)
+		require.ErrorIs(t, err, context.Canceled)
 		assert.Equal(t, 2, attempts)
 	})
 }

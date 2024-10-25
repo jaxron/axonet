@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestProxyMiddleware(t *testing.T) {
+func TestProxyMiddleware(t *testing.T) { //nolint:funlen,maintidx,cyclop
 	t.Parallel()
 
 	t.Run("Apply proxy to request", func(t *testing.T) {
@@ -38,7 +38,7 @@ func TestProxyMiddleware(t *testing.T) {
 		}
 
 		// Multiple requests to check rotation
-		for i := 0; i < 10; i++ {
+		for range 10 {
 			req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
 			resp, err := middleware.Process(context.Background(), &http.Client{}, req, handler)
 			require.NoError(t, err)
@@ -108,7 +108,7 @@ func TestProxyMiddleware(t *testing.T) {
 
 		// Check that both new proxies are used
 		usedProxies := make(map[string]bool)
-		for i := 0; i < 20; i++ {
+		for range 20 {
 			req = httptest.NewRequest(http.MethodGet, "http://example.com", nil)
 			resp, err = middleware.Process(context.Background(), &http.Client{}, req, handler)
 			require.NoError(t, err)
@@ -226,7 +226,7 @@ func TestProxyMiddleware(t *testing.T) {
 		}
 
 		orderChanged := false
-		for i := 0; i < 10; i++ {
+		for range 10 {
 			// Shuffle the proxies
 			middleware.Shuffle()
 
@@ -241,11 +241,11 @@ func TestProxyMiddleware(t *testing.T) {
 			}
 
 			newOrder := make([]string, len(proxies))
-			for j := range len(proxies) {
+			for i := range proxies {
 				req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
 				resp, err := middleware.Process(context.Background(), &http.Client{}, req, handler)
 				require.NoError(t, err)
-				newOrder[j] = resp.Header.Get("Proxy-Used")
+				newOrder[i] = resp.Header.Get("Proxy-Used")
 			}
 
 			if !assert.ElementsMatch(t, initialOrder, newOrder) {

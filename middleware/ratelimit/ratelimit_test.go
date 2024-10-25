@@ -45,7 +45,7 @@ func TestRateLimiterMiddleware(t *testing.T) {
 
 		err := makeRequest(ctx)
 		require.Error(t, err)
-		assert.ErrorIs(t, err, clientErrors.ErrTimeout)
+		require.ErrorIs(t, err, clientErrors.ErrTimeout)
 
 		// After waiting, we should be able to make another request
 		time.Sleep(time.Second / time.Duration(requestsPerSecond))
@@ -70,7 +70,7 @@ func TestRateLimiterMiddleware(t *testing.T) {
 		}
 
 		// Burst number of requests should succeed immediately
-		for i := 0; i < burst; i++ {
+		for range burst {
 			err := makeRequest(context.Background())
 			require.NoError(t, err)
 		}

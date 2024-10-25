@@ -14,6 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var ErrFailed = errors.New("simulated failure")
+
 func TestCircuitBreakerMiddleware(t *testing.T) {
 	t.Parallel()
 
@@ -40,11 +42,11 @@ func TestCircuitBreakerMiddleware(t *testing.T) {
 
 		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
 		failingHandler := func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
-			return nil, errors.New("simulated failure")
+			return nil, ErrFailed
 		}
 
 		// Fail 3 times to open the circuit
-		for i := 0; i < 3; i++ {
+		for range 3 {
 			_, err := middleware.Process(context.Background(), &http.Client{}, req, failingHandler)
 			require.Error(t, err)
 		}
@@ -52,7 +54,7 @@ func TestCircuitBreakerMiddleware(t *testing.T) {
 		// The next call should return ErrCircuitOpen
 		_, err := middleware.Process(context.Background(), &http.Client{}, req, failingHandler)
 		require.Error(t, err)
-		assert.True(t, errors.Is(err, circuitbreaker.ErrCircuitOpen))
+		assert.ErrorIs(t, err, circuitbreaker.ErrCircuitOpen)
 	})
 
 	t.Run("Circuit half-open state", func(t *testing.T) {
@@ -63,11 +65,11 @@ func TestCircuitBreakerMiddleware(t *testing.T) {
 
 		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
 		failingHandler := func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
-			return nil, errors.New("simulated failure")
+			return nil, ErrFailed
 		}
 
 		// Fail 3 times to open the circuit
-		for i := 0; i < 3; i++ {
+		for range 3 {
 			_, err := middleware.Process(context.Background(), &http.Client{}, req, failingHandler)
 			require.Error(t, err)
 		}

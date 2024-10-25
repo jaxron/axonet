@@ -18,6 +18,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var ErrMiddleware = errors.New("middleware error")
+
 // NewTestClient creates a new client.Client instance for testing purposes.
 func NewTestClient(opts ...client.Option) *client.Client {
 	return client.NewClient(
@@ -27,7 +29,7 @@ func NewTestClient(opts ...client.Option) *client.Client {
 	)
 }
 
-// MockMiddleware is a mock implementation of the Middleware interface
+// MockMiddleware is a mock implementation of the Middleware interface.
 type MockMiddleware struct {
 	mock.Mock
 }
@@ -45,7 +47,7 @@ func (m *MockMiddleware) SetLogger(logger logger.Logger) {
 	m.Called(logger)
 }
 
-func TestClientDo(t *testing.T) {
+func TestClientDo(t *testing.T) { //nolint:funlen
 	t.Parallel()
 
 	t.Run("Successful request", func(t *testing.T) {
@@ -117,11 +119,10 @@ func TestClientDo(t *testing.T) {
 	t.Run("Middleware error handling", func(t *testing.T) {
 		t.Parallel()
 
-		expectedError := errors.New("middleware error")
 		middleware := &MockMiddleware{}
 		middleware.On("SetLogger", mock.AnythingOfType("*logger.BasicLogger")).Return()
 		middleware.On("Process", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-			Return(nil, expectedError)
+			Return(nil, ErrMiddleware)
 
 		client := NewTestClient(client.WithMiddleware(1, middleware))
 
@@ -131,7 +132,7 @@ func TestClientDo(t *testing.T) {
 			Do(context.Background())
 
 		require.Error(t, err)
-		assert.Equal(t, expectedError, err)
+		assert.Equal(t, ErrMiddleware, err)
 		middleware.AssertExpectations(t)
 	})
 
@@ -161,7 +162,7 @@ func TestClientDo(t *testing.T) {
 			Do(ctx)
 
 		require.Error(t, err)
-		assert.True(t, errors.Is(err, context.Canceled))
+		require.ErrorIs(t, err, context.Canceled)
 		middleware.AssertExpectations(t)
 	})
 
@@ -188,14 +189,15 @@ func TestClientDo(t *testing.T) {
 			}
 
 			mockMiddleware := m.(interface {
-				On(string, ...interface{}) *mock.Call
+				On(methodName string, args ...interface{}) *mock.Call
 			})
 			mockMiddleware.On("SetLogger", mock.AnythingOfType("*logger.BasicLogger")).Return()
 			mockMiddleware.On("Process", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 				Run(func(args mock.Arguments) {
 					executionOrder = append(executionOrder, name)
 					next := args.Get(3).(clientMiddleware.NextFunc)
-					next(args.Get(0).(context.Context), args.Get(1).(*http.Client), args.Get(2).(*http.Request))
+					_, err := next(args.Get(0).(context.Context), args.Get(1).(*http.Client), args.Get(2).(*http.Request))
+					assert.NoError(t, err)
 				}).
 				Return(&http.Response{StatusCode: http.StatusOK}, nil)
 			return m

@@ -16,6 +16,8 @@ import (
 )
 
 func TestWithMiddleware(t *testing.T) {
+	t.Parallel()
+
 	mockMiddleware := &MockMiddleware{}
 	mockMiddleware.On("SetLogger", mock.AnythingOfType("*logger.BasicLogger")).Return()
 	mockMiddleware.On("Process", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
@@ -33,6 +35,8 @@ func TestWithMiddleware(t *testing.T) {
 }
 
 func TestWithTimeout(t *testing.T) {
+	t.Parallel()
+
 	// Create a test server that sleeps for 100ms
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(100 * time.Millisecond)
@@ -65,6 +69,8 @@ func TestWithTimeout(t *testing.T) {
 }
 
 func TestWithLogger(t *testing.T) {
+	t.Parallel()
+
 	mockLogger := &MockLogger{}
 	mockLogger.On("WithFields", mock.Anything).Return(mockLogger)
 	mockLogger.On("Debug", mock.Anything).Return()
@@ -81,10 +87,12 @@ func TestWithLogger(t *testing.T) {
 }
 
 func TestMarshalWith(t *testing.T) {
+	t.Parallel()
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var data map[string]string
 		err := json.NewDecoder(r.Body).Decode(&data)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 		assert.Equal(t, "custom", data["format"])
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -105,16 +113,17 @@ func TestMarshalWith(t *testing.T) {
 }
 
 func TestUnmarshalWith(t *testing.T) {
+	t.Parallel()
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"format":"custom"}`))
+		_, err := w.Write([]byte(`{"format":"custom"}`))
+		assert.NoError(t, err)
 	}))
 	defer server.Close()
 
 	var result map[string]string
-	customUnmarshal := func(data []byte, v interface{}) error {
-		return json.Unmarshal(data, v)
-	}
+	customUnmarshal := json.Unmarshal
 
 	_, err := NewTestClient().NewRequest().
 		Method(http.MethodGet).
@@ -128,6 +137,8 @@ func TestUnmarshalWith(t *testing.T) {
 }
 
 func TestQuery(t *testing.T) {
+	t.Parallel()
+
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "value", r.URL.Query().Get("key"))
 		w.WriteHeader(http.StatusOK)
@@ -143,7 +154,7 @@ func TestQuery(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// MockLogger implementation
+// MockLogger implementation.
 type MockLogger struct {
 	mock.Mock
 }
@@ -169,7 +180,7 @@ func (m *MockLogger) Error(msg string) {
 	m.Called(msg)
 }
 
-// Add these new methods to comply with the logger.Logger interface
+// Add these new methods to comply with the logger.Logger interface.
 func (m *MockLogger) Debugf(format string, args ...interface{}) {
 	m.Called(format, args)
 }

@@ -29,7 +29,7 @@ func TestSingleFlightMiddleware(t *testing.T) {
 		requestCount := 0
 		var mu sync.Mutex
 
-		handler := func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
+		handler := func(_ context.Context, _ *http.Client, _ *http.Request) (*http.Response, error) { //nolint:unparam
 			mu.Lock()
 			requestCount++
 			mu.Unlock()
@@ -43,12 +43,12 @@ func TestSingleFlightMiddleware(t *testing.T) {
 		}
 
 		var wg sync.WaitGroup
-		for i := 0; i < 5; i++ {
+		for range 5 {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
 				resp, err := makeRequest()
-				require.NoError(t, err)
+				assert.NoError(t, err)
 				assert.Equal(t, http.StatusOK, resp.StatusCode)
 			}()
 		}
@@ -66,7 +66,7 @@ func TestSingleFlightMiddleware(t *testing.T) {
 		requestCount := 0
 		var mu sync.Mutex
 
-		handler := func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
+		handler := func(_ context.Context, _ *http.Client, _ *http.Request) (*http.Response, error) { //nolint:unparam
 			mu.Lock()
 			requestCount++
 			mu.Unlock()
@@ -86,7 +86,7 @@ func TestSingleFlightMiddleware(t *testing.T) {
 			go func(url string) {
 				defer wg.Done()
 				resp, err := makeRequest(url)
-				require.NoError(t, err)
+				assert.NoError(t, err)
 				assert.Equal(t, http.StatusOK, resp.StatusCode)
 			}(url)
 		}
@@ -104,7 +104,7 @@ func TestSingleFlightMiddleware(t *testing.T) {
 		requestCount := 0
 		var mu sync.Mutex
 
-		handler := func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
+		handler := func(_ context.Context, _ *http.Client, _ *http.Request) (*http.Response, error) { //nolint:unparam
 			mu.Lock()
 			requestCount++
 			mu.Unlock()
@@ -124,7 +124,7 @@ func TestSingleFlightMiddleware(t *testing.T) {
 			go func(body string) {
 				defer wg.Done()
 				resp, err := makeRequest(body)
-				require.NoError(t, err)
+				assert.NoError(t, err)
 				assert.Equal(t, http.StatusOK, resp.StatusCode)
 			}(body)
 		}
