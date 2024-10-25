@@ -4,7 +4,7 @@ go 1.23.1
 
 require (
 	github.com/cespare/xxhash v1.1.0
-	github.com/jaxron/axonet v0.0.0-20241009045600-f73d347dcdfe
+	github.com/jaxron/axonet v0.0.0-20241025045532-ccdce8931d02
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/sync v0.8.0
 )

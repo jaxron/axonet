@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/bytedance/sonic"
-	redis "github.com/jaxron/axonet/middleware/rediscache"
+	"github.com/jaxron/axonet/middleware/redis"
 	"github.com/jaxron/axonet/pkg/client/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
