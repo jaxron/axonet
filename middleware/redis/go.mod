@@ -1,4 +1,4 @@
-module github.com/jaxron/axonet/middleware/rediscache
+module github.com/jaxron/axonet/middleware/redis
 
 go 1.23.1
 
