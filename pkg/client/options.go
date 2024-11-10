@@ -3,7 +3,6 @@ package client
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,6 +12,12 @@ import (
 	"github.com/jaxron/axonet/pkg/client/logger"
 	"github.com/jaxron/axonet/pkg/client/middleware"
 )
+
+// MarshalFunc is a function type that matches standard marshal functions.
+type MarshalFunc func(interface{}) ([]byte, error)
+
+// UnmarshalFunc is a function type that matches standard unmarshal functions.
+type UnmarshalFunc func([]byte, interface{}) error
 
 // Option is a function type that modifies the Client configuration.
 type Option func(*Client)
@@ -38,11 +43,19 @@ func WithLogger(logger logger.Logger) Option {
 	}
 }
 
-// MarshalFunc is a function type that matches standard marshal functions.
-type MarshalFunc func(interface{}) ([]byte, error)
+// WithMarshalFunc sets the marshal function for the Client.
+func WithMarshalFunc(fn MarshalFunc) Option {
+	return func(c *Client) {
+		c.marshalFunc = fn
+	}
+}
 
-// UnmarshalFunc is a function type that matches standard unmarshal functions.
-type UnmarshalFunc func([]byte, interface{}) error
+// WithUnmarshalFunc sets the unmarshal function for the Client.
+func WithUnmarshalFunc(fn UnmarshalFunc) Option {
+	return func(c *Client) {
+		c.unmarshalFunc = fn
+	}
+}
 
 // Request helps build requests using method chaining.
 type Request struct {
@@ -62,8 +75,8 @@ type Request struct {
 func (c *Client) NewRequest() *Request {
 	return &Request{
 		client:        c,
-		marshalFunc:   json.Marshal,
-		unmarshalFunc: json.Unmarshal,
+		marshalFunc:   c.marshalFunc,
+		unmarshalFunc: c.unmarshalFunc,
 		result:        nil,
 		method:        "",
 		url:           "",

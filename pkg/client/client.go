@@ -3,6 +3,7 @@ package client
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 
 	"github.com/jaxron/axonet/pkg/client/logger"
@@ -13,6 +14,8 @@ import (
 type Client struct {
 	middlewareChain *middleware.Chain
 	httpClient      *http.Client
+	marshalFunc     MarshalFunc
+	unmarshalFunc   UnmarshalFunc
 }
 
 // NewClient creates a new Client instance with default settings.
@@ -25,6 +28,8 @@ func NewClient(opts ...Option) *Client {
 			Jar:           nil,
 			Timeout:       0,
 		},
+		marshalFunc:   json.Marshal,
+		unmarshalFunc: json.Unmarshal,
 	}
 
 	for _, opt := range opts {
