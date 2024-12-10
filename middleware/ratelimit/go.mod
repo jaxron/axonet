@@ -3,9 +3,9 @@ module github.com/jaxron/axonet/middleware/ratelimit
 go 1.23.1
 
 require (
-	github.com/jaxron/axonet v0.0.0-20241025045532-ccdce8931d02
+	github.com/jaxron/axonet v0.0.0-20241110114112-10fce0f238e1
 	github.com/stretchr/testify v1.9.0
-	golang.org/x/time v0.7.0
+	golang.org/x/time v0.8.0
 )
 
 require (

@@ -3,7 +3,7 @@ module github.com/jaxron/axonet/middleware/circuitbreaker
 go 1.23.1
 
 require (
-	github.com/jaxron/axonet v0.0.0-20241025045532-ccdce8931d02
+	github.com/jaxron/axonet v0.0.0-20241110114112-10fce0f238e1
 	github.com/sony/gobreaker v1.0.0
 	github.com/stretchr/testify v1.9.0
 )

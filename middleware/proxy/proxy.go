@@ -16,11 +16,7 @@ import (
 
 var ErrInvalidTransport = errors.New("invalid transport")
 
-type contextKey int
-
-const (
-	KeySkipProxy contextKey = iota
-)
+type SkipProxyKey struct{}
 
 // ProxyMiddleware manages proxy rotation for HTTP requests.
 type ProxyMiddleware struct {
@@ -46,7 +42,7 @@ func New(proxies []*url.URL) *ProxyMiddleware {
 
 // Process applies proxy logic before passing the request to the next middleware.
 func (m *ProxyMiddleware) Process(ctx context.Context, httpClient *http.Client, req *http.Request, next middleware.NextFunc) (*http.Response, error) {
-	if skipProxy, ok := ctx.Value(KeySkipProxy).(bool); ok && skipProxy {
+	if skipProxy, ok := ctx.Value(SkipProxyKey{}).(bool); ok && skipProxy {
 		m.logger.Debug("Skipping proxy for this request")
 		return next(ctx, httpClient, req)
 	}

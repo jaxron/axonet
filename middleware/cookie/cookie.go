@@ -12,11 +12,7 @@ import (
 	"github.com/jaxron/axonet/pkg/client/middleware"
 )
 
-type contextKey int
-
-const (
-	KeySkipCookie contextKey = iota
-)
+type SkipCookieKey struct{}
 
 // CookieMiddleware manages cookie rotation for HTTP requests.
 type CookieMiddleware struct {
@@ -43,7 +39,7 @@ func New(cookies [][]*http.Cookie) *CookieMiddleware {
 // Process applies cookie logic before passing the request to the next middleware.
 func (m *CookieMiddleware) Process(ctx context.Context, httpClient *http.Client, req *http.Request, next middleware.NextFunc) (*http.Response, error) {
 	// Check if the cookie middleware is disabled via context
-	if isDisabled, ok := ctx.Value(KeySkipCookie).(bool); ok && isDisabled {
+	if isDisabled, ok := ctx.Value(SkipCookieKey{}).(bool); ok && isDisabled {
 		m.logger.Debug("Cookie middleware disabled via context")
 		return next(ctx, httpClient, req)
 	}

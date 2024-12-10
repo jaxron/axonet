@@ -188,7 +188,7 @@ func TestProxyMiddleware(t *testing.T) { //nolint:funlen,maintidx,cyclop
 			t.Parallel()
 
 			req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
-			ctx := context.WithValue(context.Background(), proxy.KeySkipProxy, true)
+			ctx := context.WithValue(context.Background(), proxy.SkipProxyKey{}, true)
 
 			originalClient := &http.Client{}
 			handler := func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {

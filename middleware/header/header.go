@@ -31,6 +31,7 @@ func (m *HeaderMiddleware) Process(ctx context.Context, httpClient *http.Client,
 			req.Header.Add(key, value)
 		}
 	}
+
 	return next(ctx, httpClient, req)
 }
 

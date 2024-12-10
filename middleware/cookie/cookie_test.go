@@ -231,7 +231,7 @@ func TestCookieMiddleware(t *testing.T) { //nolint:funlen,maintidx
 		}
 
 		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
-		ctx := context.WithValue(context.Background(), cookie.KeySkipCookie, true)
+		ctx := context.WithValue(context.Background(), cookie.SkipCookieKey{}, true)
 		_, err := middleware.Process(ctx, &http.Client{}, req, handler)
 		require.NoError(t, err)
 

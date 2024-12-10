@@ -53,6 +53,7 @@ func (m *RetryMiddleware) Process(ctx context.Context, httpClient *http.Client, 
 		func(err error, duration time.Duration) {
 			m.logger.WithFields(
 				logger.String("error", err.Error()),
+				logger.String("url", req.URL.String()),
 				logger.Duration("retry_in", duration),
 			).Warn("Retrying request")
 		},
