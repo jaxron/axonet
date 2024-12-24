@@ -20,9 +20,7 @@ linters:
     - forcetypeassert # Not needed
     - mnd # Not needed
     - exhaustruct # Not needed
-    - gomnd # Deprecated
     - exportloopref # Deprecated
-    - execinquery # Deprecated
 
 linters-settings:
   lll:
