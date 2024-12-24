@@ -15,6 +15,8 @@ import (
 	"github.com/redis/rueidis"
 )
 
+type SkipCacheKey struct{}
+
 // RedisMiddleware implements a caching middleware using Redis.
 type RedisMiddleware struct {
 	client     rueidis.Client
@@ -45,6 +47,12 @@ func New(redisClient rueidis.Client, expiration time.Duration) *RedisMiddleware 
 
 // Process implements the middleware.Middleware interface.
 func (m *RedisMiddleware) Process(ctx context.Context, httpClient *http.Client, req *http.Request, next middleware.NextFunc) (*http.Response, error) {
+	// Check if caching should be skipped
+	if skipCache, ok := ctx.Value(SkipCacheKey{}).(bool); ok && skipCache {
+		m.logger.Debug("Skipping cache for this request")
+		return next(ctx, httpClient, req)
+	}
+
 	key := m.GenerateKey(req)
 
 	// Try to get the cached response
