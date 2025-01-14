@@ -39,7 +39,7 @@
 Axonet offers features that prioritize flexibility and reliability. Key features include:
 
 - **Enhanced HTTP Client**
-  - Make requests to any website using built-in middlewares.
+  - Make requests to any sites using built-in middlewares.
   - Extend the middlewares to suit your needs.
   - Simple request construction using builders.
   - Built on top of Go's standard `http.Client`.
@@ -65,20 +65,20 @@ go get github.com/jaxron/axonet
 
 # 🧩 Middlewares
 
-Axonet provides a variety of middlewares to augment your HTTP client's functionality. You have the flexibility to selectively install and utilize only the middlewares that are essential for your project. If you require capabilities beyond the provided options, you can create custom middleware and integrate it seamlessly using the `WithMiddleware(priority int, middleware Middleware)` client option.
+Axonet provides a variety of middlewares to augment your HTTP client's functionality. You have the flexibility to selectively install and utilize only the middlewares that are essential for your project. If you require capabilities beyond the provided options, you can create custom middleware and integrate it seamlessly using the `WithMiddleware(middleware Middleware)` client option.
 
 ## Available Middlewares
 
-| Middleware      | Description                                                                                                                                   | Recommended Priority | Source                                                                         |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- | ------------------------------------------------------------------------------ |
-| Circuit Breaker | Implements fault tolerance using the [circuit breaker](https://learn.microsoft.com/en-us/azure/architecture/patterns/circuit-breaker) pattern | 6                    | [Source](https://github.com/jaxron/axonet/tree/main/middleware/circuitbreaker) |
-| Retry           | Provides [retry mechanism](https://learn.microsoft.com/en-us/azure/architecture/patterns/retry) with exponential backoff                      | 5                    | [Source](https://github.com/jaxron/axonet/tree/main/middleware/retry)          |
-| Single Flight   | Deduplicates concurrent identical requests                                                                                                    | 4                    | [Source](https://github.com/jaxron/axonet/tree/main/middleware/singleflight)   |
-| Redis           | Provides response caching using Redis                                                                                                         | 3                    | [Source](https://github.com/jaxron/axonet/tree/main/middleware/redis)          |
-| Rate Limit      | Implements [rate limiting](https://learn.microsoft.com/en-us/azure/architecture/patterns/rate-limiting-pattern) to prevent API throttling     | 2                    | [Source](https://github.com/jaxron/axonet/tree/main/middleware/ratelimit)      |
-| Header          | Adds custom headers to requests                                                                                                               | 1                    | [Source](https://github.com/jaxron/axonet/tree/main/middleware/header)         |
-| Cookie          | Manages cookie-based authentication with rotation                                                                                             | 1                    | [Source](https://github.com/jaxron/axonet/tree/main/middleware/cookie)         |
-| Proxy           | Enables dynamic proxy rotation for distributed traffic                                                                                        | 1                    | [Source](https://github.com/jaxron/axonet/tree/main/middleware/proxy)          |
+| Middleware      | Description                                                                                                                                   | Source                                                                         |
+|-----------------|-----------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------|
+| Circuit Breaker | Implements fault tolerance using the [circuit breaker](https://learn.microsoft.com/en-us/azure/architecture/patterns/circuit-breaker) pattern | [Source](https://github.com/jaxron/axonet/tree/main/middleware/circuitbreaker) |
+| Retry           | Provides [retry mechanism](https://learn.microsoft.com/en-us/azure/architecture/patterns/retry) with exponential backoff                      | [Source](https://github.com/jaxron/axonet/tree/main/middleware/retry)          |
+| Single Flight   | Deduplicates concurrent identical requests                                                                                                    | [Source](https://github.com/jaxron/axonet/tree/main/middleware/singleflight)   |
+| Redis           | Provides response caching using Redis                                                                                                         | [Source](https://github.com/jaxron/axonet/tree/main/middleware/redis)          |
+| Rate Limit      | Implements [rate limiting](https://learn.microsoft.com/en-us/azure/architecture/patterns/rate-limiting-pattern) to prevent API throttling     | [Source](https://github.com/jaxron/axonet/tree/main/middleware/ratelimit)      |
+| Header          | Adds custom headers to requests                                                                                                               | [Source](https://github.com/jaxron/axonet/tree/main/middleware/header)         |
+| Cookie          | Manages cookie-based authentication with rotation                                                                                             | [Source](https://github.com/jaxron/axonet/tree/main/middleware/cookie)         |
+| Proxy           | Enables dynamic proxy rotation for distributed traffic                                                                                        | [Source](https://github.com/jaxron/axonet/tree/main/middleware/proxy)          |
 
 ## Installing Middlewares
 
@@ -126,8 +126,8 @@ import (
 func main() {
     // Create a new client with middlewares
     c := client.NewClient(
-        client.WithMiddleware(2, retry.New(3, 1*time.Second, 5*time.Second)),
-        client.WithMiddleware(1, singleflight.New()),
+        client.WithMiddleware(retry.New(3, 1*time.Second, 5*time.Second)),
+        client.WithMiddleware(singleflight.New()),
         client.WithLogger(logger.NewBasicLogger()),
     )
 
@@ -165,14 +165,14 @@ import (
 )
 
 c := client.NewClient(
-    client.WithMiddleware(6, circuitbreaker.New(5, 10*time.Second, 30*time.Second)),
-    client.WithMiddleware(5, retry.New(3, 1*time.Second, 5*time.Second)),
-    client.WithMiddleware(4, singleflight.New()),
-    client.WithMiddleware(3, redis.New(rueidisClient, 5*time.Minute)),
-    client.WithMiddleware(2, ratelimit.New(10, 5)),
-    client.WithMiddleware(1, proxy.New([]*url.URL{proxyURL1, proxyURL2})),
-    client.WithMiddleware(1, cookie.New([][]*http.Cookie{cookies1, cookies2})),
-    client.WithMiddleware(1, header.New(http.Header{"User-Agent": {"MyApp/1.0"}})),
+    client.WithMiddleware(circuitbreaker.New(5, 10*time.Second, 30*time.Second)),
+    client.WithMiddleware(retry.New(3, 1*time.Second, 5*time.Second)),
+    client.WithMiddleware(singleflight.New()),
+    client.WithMiddleware(redis.New(rueidisClient, 5*time.Minute)),
+    client.WithMiddleware(ratelimit.New(10, 5)),
+    client.WithMiddleware(proxy.New([]*url.URL{proxyURL1, proxyURL2})),
+    client.WithMiddleware(cookie.New([][]*http.Cookie{cookies1, cookies2})),
+    client.WithMiddleware(header.New(http.Header{"User-Agent": {"MyApp/1.0"}})),
     client.WithLogger(logger.NewBasicLogger()),
 )
 ```
