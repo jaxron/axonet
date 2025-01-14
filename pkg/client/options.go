@@ -23,9 +23,9 @@ type UnmarshalFunc func([]byte, interface{}) error
 type Option func(*Client)
 
 // WithMiddleware adds or updates the middleware for the Client with a specified priority.
-func WithMiddleware(priority int, middleware middleware.Middleware) Option {
+func WithMiddleware(middleware middleware.Middleware) Option {
 	return func(c *Client) {
-		c.middlewareChain.Then(priority, middleware)
+		c.middlewareChain.Then(middleware)
 	}
 }
 

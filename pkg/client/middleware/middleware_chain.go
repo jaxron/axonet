@@ -5,32 +5,23 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
-	"sort"
 
 	"github.com/jaxron/axonet/pkg/client/errors"
 	"github.com/jaxron/axonet/pkg/client/logger"
 )
 
-// PrioritizedMiddleware wraps a Middleware with a priority value.
-type PrioritizedMiddleware struct {
-	Middleware Middleware
-	Priority   int
-}
-
 // Chain represents a chain of middleware.
 type Chain struct {
-	middlewares []PrioritizedMiddleware
+	middlewares []Middleware
 	logger      logger.Logger
 }
 
 // NewChain creates a new middleware chain.
-func NewChain(logger logger.Logger, middlewares ...PrioritizedMiddleware) *Chain {
-	chain := &Chain{
+func NewChain(logger logger.Logger, middlewares ...Middleware) *Chain {
+	return &Chain{
 		middlewares: middlewares,
 		logger:      logger,
 	}
-	chain.sortMiddlewares()
-	return chain
 }
 
 // Len returns the number of middlewares in the chain.
@@ -40,19 +31,14 @@ func (c *Chain) Len() int {
 
 // Middlewares returns the slice of middlewares.
 func (c *Chain) Middlewares() []Middleware {
-	result := make([]Middleware, len(c.middlewares))
-	for i, pm := range c.middlewares {
-		result[i] = pm.Middleware
-	}
-	return result
+	return append([]Middleware(nil), c.middlewares...)
 }
 
 // Then adds middleware to the chain, replacing any existing middleware of the same type.
-func (c *Chain) Then(priority int, middlewares ...Middleware) {
+func (c *Chain) Then(middlewares ...Middleware) {
 	for _, m := range middlewares {
-		c.addOrReplace(priority, m)
+		c.addOrReplace(m)
 	}
-	c.sortMiddlewares()
 }
 
 // Process runs the request through all middleware in the chain.
@@ -68,11 +54,10 @@ func (c *Chain) Process(ctx context.Context, httpClient *http.Client, req *http.
 
 // logMiddlewareChain logs the available middleware in the chain.
 func (c *Chain) logMiddlewareChain() {
-	for i, pm := range c.middlewares {
+	for i, m := range c.middlewares {
 		c.logger.WithFields(
 			logger.Int("index", i),
-			logger.String("type", reflect.TypeOf(pm.Middleware).String()),
-			logger.Int("priority", pm.Priority),
+			logger.String("type", reflect.TypeOf(m).String()),
 		).Debug("Middleware in chain")
 	}
 }
@@ -85,7 +70,7 @@ func (c *Chain) processMiddleware(ctx context.Context, httpClient *http.Client, 
 	}
 
 	// Otherwise, apply the middleware and continue
-	return c.middlewares[index].Middleware.Process(ctx, httpClient, req, func(ctx context.Context, client *http.Client, req *http.Request) (*http.Response, error) {
+	return c.middlewares[index].Process(ctx, httpClient, req, func(ctx context.Context, client *http.Client, req *http.Request) (*http.Response, error) {
 		return c.processMiddleware(ctx, client, req, index+1)
 	})
 }
@@ -118,29 +103,22 @@ func (c *Chain) performRequest(ctx context.Context, httpClient *http.Client, req
 }
 
 // addOrReplace adds a new middleware or replaces an existing one of the same type.
-func (c *Chain) addOrReplace(priority int, m Middleware) {
-	for i, pm := range c.middlewares {
-		if reflect.TypeOf(pm.Middleware) == reflect.TypeOf(m) {
-			c.middlewares[i] = PrioritizedMiddleware{Middleware: m, Priority: priority}
+func (c *Chain) addOrReplace(m Middleware) {
+	for i, existing := range c.middlewares {
+		if reflect.TypeOf(existing) == reflect.TypeOf(m) {
+			c.middlewares[i] = m
 			m.SetLogger(c.logger)
 			return
 		}
 	}
-	c.middlewares = append(c.middlewares, PrioritizedMiddleware{Middleware: m, Priority: priority})
+	c.middlewares = append(c.middlewares, m)
 	m.SetLogger(c.logger)
-}
-
-// sortMiddlewares sorts the middlewares by priority (descending order).
-func (c *Chain) sortMiddlewares() {
-	sort.Slice(c.middlewares, func(i, j int) bool {
-		return c.middlewares[i].Priority > c.middlewares[j].Priority
-	})
 }
 
 // SetLogger updates the logger for all middleware in the chain.
 func (c *Chain) SetLogger(l logger.Logger) {
-	for _, pm := range c.middlewares {
-		pm.Middleware.SetLogger(l)
+	for _, m := range c.middlewares {
+		m.SetLogger(l)
 	}
 	c.logger = l
 }

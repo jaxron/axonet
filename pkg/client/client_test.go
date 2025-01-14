@@ -124,7 +124,7 @@ func TestClientDo(t *testing.T) { //nolint:funlen
 		middleware.On("Process", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 			Return(nil, ErrMiddleware)
 
-		client := NewTestClient(client.WithMiddleware(1, middleware))
+		client := NewTestClient(client.WithMiddleware(middleware))
 
 		_, err := client.NewRequest().
 			Method(http.MethodGet).
@@ -148,7 +148,7 @@ func TestClientDo(t *testing.T) { //nolint:funlen
 			}).
 			Return(nil, context.Canceled)
 
-		client := NewTestClient(client.WithMiddleware(1, middleware))
+		client := NewTestClient(client.WithMiddleware(middleware))
 
 		ctx, cancel := context.WithCancel(context.Background())
 		go func() {
@@ -171,21 +171,20 @@ func TestClientDo(t *testing.T) { //nolint:funlen
 
 		executionOrder := []string{}
 
-		type HighPriorityMiddleware struct{ MockMiddleware }
-		type MediumPriorityMiddleware struct{ MockMiddleware }
-		type LowPriorityMiddleware struct{ MockMiddleware }
+		// Define different middleware types
+		type FirstMiddleware struct{ MockMiddleware }
+		type SecondMiddleware struct{ MockMiddleware }
+		type ThirdMiddleware struct{ MockMiddleware }
 
-		createMiddleware := func(name string, priority int) clientMiddleware.Middleware {
+		createMiddleware := func(name string, middlewareType interface{}) clientMiddleware.Middleware {
 			var m clientMiddleware.Middleware
-			switch priority {
-			case 100:
-				m = &HighPriorityMiddleware{}
-			case 50:
-				m = &MediumPriorityMiddleware{}
-			case 10:
-				m = &LowPriorityMiddleware{}
-			default:
-				m = &MockMiddleware{}
+			switch middlewareType.(type) {
+			case FirstMiddleware:
+				m = &FirstMiddleware{}
+			case SecondMiddleware:
+				m = &SecondMiddleware{}
+			case ThirdMiddleware:
+				m = &ThirdMiddleware{}
 			}
 
 			mockMiddleware := m.(interface {
@@ -209,9 +208,9 @@ func TestClientDo(t *testing.T) { //nolint:funlen
 		defer mockServer.Close()
 
 		client := NewTestClient(
-			client.WithMiddleware(100, createMiddleware("High", 100)),
-			client.WithMiddleware(50, createMiddleware("Medium", 50)),
-			client.WithMiddleware(10, createMiddleware("Low", 10)),
+			client.WithMiddleware(createMiddleware("First", FirstMiddleware{})),
+			client.WithMiddleware(createMiddleware("Second", SecondMiddleware{})),
+			client.WithMiddleware(createMiddleware("Third", ThirdMiddleware{})),
 		)
 
 		_, err := client.NewRequest().
@@ -220,6 +219,6 @@ func TestClientDo(t *testing.T) { //nolint:funlen
 			Do(context.Background())
 
 		require.NoError(t, err)
-		assert.Equal(t, []string{"High", "Medium", "Low"}, executionOrder)
+		assert.Equal(t, []string{"First", "Second", "Third"}, executionOrder)
 	})
 }
