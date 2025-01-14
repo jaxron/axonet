@@ -27,8 +27,6 @@ func New(requestsPerSecond float64, burst int) *RateLimiterMiddleware {
 
 // Process applies rate limiting before passing the request to the next middleware.
 func (m *RateLimiterMiddleware) Process(ctx context.Context, httpClient *http.Client, req *http.Request, next middleware.NextFunc) (*http.Response, error) {
-	m.logger.Debug("Processing request with rate limiter middleware")
-
 	// Wait for rate limiter permission
 	if err := m.limiter.Wait(ctx); err != nil {
 		if strings.Contains(err.Error(), "would exceed context deadline") {

@@ -40,11 +40,8 @@ func New(cookies [][]*http.Cookie) *CookieMiddleware {
 func (m *CookieMiddleware) Process(ctx context.Context, httpClient *http.Client, req *http.Request, next middleware.NextFunc) (*http.Response, error) {
 	// Check if the cookie middleware is disabled via context
 	if isDisabled, ok := ctx.Value(SkipCookieKey{}).(bool); ok && isDisabled {
-		m.logger.Debug("Cookie middleware disabled via context")
 		return next(ctx, httpClient, req)
 	}
-
-	m.logger.Debug("Processing request with cookie middleware")
 
 	m.mu.RLock()
 	cookiesLen := len(m.cookies)

@@ -56,8 +56,6 @@ func New(maxRequests uint32, interval, timeout time.Duration) *CircuitBreakerMid
 
 // Process applies the circuit breaker before passing the request to the next middleware.
 func (m *CircuitBreakerMiddleware) Process(ctx context.Context, httpClient *http.Client, req *http.Request, next middleware.NextFunc) (*http.Response, error) {
-	m.logger.Debug("Processing request with circuit breaker middleware")
-
 	// Execute the request with the circuit breaker
 	result, err := m.breaker.Execute(func() (interface{}, error) {
 		return next(ctx, httpClient, req)

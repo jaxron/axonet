@@ -40,8 +40,6 @@ func New() *SingleFlightMiddleware {
 
 // Process applies the singleflight pattern before passing the request to the next middleware.
 func (m *SingleFlightMiddleware) Process(ctx context.Context, httpClient *http.Client, req *http.Request, next middleware.NextFunc) (*http.Response, error) {
-	m.logger.Debug("Processing request with singleflight middleware")
-
 	// Generate a unique key for the request
 	key, err := m.generateRequestKey(req)
 	if err != nil {

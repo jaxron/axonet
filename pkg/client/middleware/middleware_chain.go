@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"time"
 
 	"github.com/jaxron/axonet/pkg/client/errors"
 	"github.com/jaxron/axonet/pkg/client/logger"
@@ -48,18 +49,7 @@ func (c *Chain) Process(ctx context.Context, httpClient *http.Client, req *http.
 		return c.performRequest(ctx, httpClient, req)
 	}
 
-	c.logMiddlewareChain()
 	return c.processMiddleware(ctx, httpClient, req, 0)
-}
-
-// logMiddlewareChain logs the available middleware in the chain.
-func (c *Chain) logMiddlewareChain() {
-	for i, m := range c.middlewares {
-		c.logger.WithFields(
-			logger.Int("index", i),
-			logger.String("type", reflect.TypeOf(m).String()),
-		).Debug("Middleware in chain")
-	}
 }
 
 // processMiddleware recursively applies each middleware in the chain.
@@ -69,24 +59,42 @@ func (c *Chain) processMiddleware(ctx context.Context, httpClient *http.Client, 
 		return c.performRequest(ctx, httpClient, req)
 	}
 
+	start := time.Now()
+	middleware := c.middlewares[index]
+
 	// Otherwise, apply the middleware and continue
-	return c.middlewares[index].Process(ctx, httpClient, req, func(ctx context.Context, client *http.Client, req *http.Request) (*http.Response, error) {
+	resp, err := middleware.Process(ctx, httpClient, req, func(ctx context.Context, client *http.Client, req *http.Request) (*http.Response, error) {
+		c.logger.WithFields(
+			logger.Int("index", index),
+			logger.String("middleware", reflect.TypeOf(middleware).String()),
+			logger.Duration("duration", time.Since(start)),
+		).Debug("Middleware executed")
 		return c.processMiddleware(ctx, client, req, index+1)
 	})
+
+	return resp, err
 }
 
 // performRequest executes the actual HTTP request.
 func (c *Chain) performRequest(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
+	start := time.Now()
+
 	// Log the request details
 	c.logger.WithFields(
 		logger.String("method", req.Method),
 		logger.String("url", req.URL.String()),
 		logger.Int("len_headers", len(req.Header)),
-	).Debug("Request")
+	).Debug("Request started")
 
 	// Send the request
 	resp, err := httpClient.Do(req.WithContext(ctx))
+	duration := time.Since(start)
 	if err != nil {
+		c.logger.WithFields(
+			logger.String("error", err.Error()),
+			logger.Duration("duration", duration),
+		).Debug("Request failed")
+
 		if errors.Is(err, context.DeadlineExceeded) {
 			return nil, fmt.Errorf("%w: %w", errors.ErrTimeout, err)
 		}
@@ -97,7 +105,8 @@ func (c *Chain) performRequest(ctx context.Context, httpClient *http.Client, req
 	c.logger.WithFields(
 		logger.Int("status", resp.StatusCode),
 		logger.Int("len_headers", len(resp.Header)),
-	).Debug("Response")
+		logger.Duration("duration", duration),
+	).Debug("Request completed")
 
 	return resp, nil
 }
