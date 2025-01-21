@@ -3,6 +3,7 @@ package redis
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -129,7 +130,7 @@ func (m *RedisMiddleware) cacheResponse(ctx context.Context, key string, resp *h
 
 	cmd := m.client.B().Set().Key(key).Value(string(jsonData)).Ex(m.expiration).Build()
 	err = m.client.Do(ctx, cmd).Error()
-	if err != nil {
+	if err != nil && !errors.Is(err, context.Canceled) {
 		m.logger.WithFields(logger.String("error", err.Error())).Error("Failed to cache response")
 	}
 }
