@@ -22,10 +22,12 @@ type UnmarshalFunc func([]byte, interface{}) error
 // Option is a function type that modifies the Client configuration.
 type Option func(*Client)
 
-// WithMiddleware adds or updates the middleware for the Client with a specified priority.
-func WithMiddleware(middleware middleware.Middleware) Option {
+// WithMiddleware adds one or more middleware to the Client, preserving the order in which they are added.
+func WithMiddleware(middlewares ...middleware.Middleware) Option {
 	return func(c *Client) {
-		c.middlewareChain.Then(middleware)
+		for _, m := range middlewares {
+			c.middlewareChain.Then(m)
+		}
 	}
 }
 

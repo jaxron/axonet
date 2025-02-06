@@ -10,6 +10,7 @@ import (
 
 	"github.com/jaxron/axonet/pkg/client"
 	"github.com/jaxron/axonet/pkg/client/logger"
+	"github.com/jaxron/axonet/pkg/client/middleware"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -32,6 +33,71 @@ func TestWithMiddleware(t *testing.T) {
 
 	require.NoError(t, err)
 	mockMiddleware.AssertExpectations(t)
+}
+
+func TestWithMiddlewareVariadic(t *testing.T) {
+	t.Parallel()
+
+	executionOrder := []string{}
+
+	type FirstMiddleware struct {
+		*MockMiddleware
+	}
+	type SecondMiddleware struct {
+		*MockMiddleware
+	}
+	type ThirdMiddleware struct {
+		*MockMiddleware
+	}
+
+	createMockMiddleware := func(name string, middlewareType interface{}) middleware.Middleware {
+		mockMiddleware := &MockMiddleware{}
+		mockMiddleware.On("SetLogger", mock.AnythingOfType("*logger.BasicLogger")).Return()
+		mockMiddleware.On("Process", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+			Run(func(args mock.Arguments) {
+				executionOrder = append(executionOrder, name)
+				next := args.Get(3).(middleware.NextFunc)
+				_, err := next(args.Get(0).(context.Context), args.Get(1).(*http.Client), args.Get(2).(*http.Request))
+				assert.NoError(t, err)
+			}).
+			Return(&http.Response{StatusCode: http.StatusOK}, nil)
+
+		var m middleware.Middleware
+		switch middlewareType.(type) {
+		case FirstMiddleware:
+			m = &FirstMiddleware{MockMiddleware: mockMiddleware}
+		case SecondMiddleware:
+			m = &SecondMiddleware{MockMiddleware: mockMiddleware}
+		case ThirdMiddleware:
+			m = &ThirdMiddleware{MockMiddleware: mockMiddleware}
+		}
+
+		return m
+	}
+
+	// Create middleware with different types
+	m1 := createMockMiddleware("first", FirstMiddleware{})
+	m2 := createMockMiddleware("second", SecondMiddleware{})
+	m3 := createMockMiddleware("third", ThirdMiddleware{})
+
+	// Create client with both single and multiple middleware
+	c := NewTestClient(
+		client.WithMiddleware(m1),
+		client.WithMiddleware(m2, m3),
+	)
+
+	_, err := c.NewRequest().
+		Method(http.MethodGet).
+		URL("http://example.com").
+		Do(context.Background())
+
+	require.NoError(t, err)
+	assert.Equal(t, []string{"first", "second", "third"}, executionOrder)
+
+	// Get the underlying MockMiddleware to assert expectations
+	m1.(*FirstMiddleware).MockMiddleware.AssertExpectations(t)
+	m2.(*SecondMiddleware).MockMiddleware.AssertExpectations(t)
+	m3.(*ThirdMiddleware).MockMiddleware.AssertExpectations(t)
 }
 
 func TestWithTimeout(t *testing.T) {
