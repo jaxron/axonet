@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/bytedance/sonic"
@@ -78,6 +79,12 @@ func (m *RedisMiddleware) Process(ctx context.Context, httpClient *http.Client, 
 		}
 		resp.Body.Close()
 		resp.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+
+		// Validate response based on content type
+		if !m.ShouldCacheResponse(resp, bodyBytes) {
+			m.logger.Debug("Invalid JSON response, skipping cache")
+			return resp, nil
+		}
 
 		// Cache the response
 		go m.cacheResponse(ctx, key, resp, bodyBytes)
@@ -172,4 +179,13 @@ func (m *RedisMiddleware) ReconstructResponse(cachedResp *CachedResponse) *http.
 		Uncompressed:     cachedResp.Uncompressed,
 		Trailer:          cachedResp.Trailer,
 	} //exhaustruct:ignore
+}
+
+// ShouldCacheResponse determines if the response should be cached based on the content type and response content.
+func (m *RedisMiddleware) ShouldCacheResponse(resp *http.Response, body []byte) bool {
+	contentType := resp.Header.Get("Content-Type")
+	if strings.Contains(contentType, "application/json") {
+		return len(body) > 0 && sonic.Valid(body)
+	}
+	return true
 }

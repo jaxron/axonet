@@ -124,3 +124,88 @@ func TestCachedResponseSerialization(t *testing.T) {
 		assert.Equal(t, original.Trailer, reconstructed.Trailer)
 	})
 }
+
+func TestShouldCacheResponse(t *testing.T) {
+	t.Parallel()
+
+	middleware := &redis.RedisMiddleware{}
+	middleware.SetLogger(logger.NewBasicLogger())
+
+	tests := []struct {
+		name        string
+		contentType string
+		body        []byte
+		want        bool
+	}{
+		{
+			name:        "non-JSON response should always cache",
+			contentType: "text/html",
+			body:        []byte("<html>test</html>"),
+			want:        true,
+		},
+		{
+			name:        "valid JSON response should cache",
+			contentType: "application/json",
+			body:        []byte(`{"test": "value"}`),
+			want:        true,
+		},
+		{
+			name:        "empty JSON object should cache",
+			contentType: "application/json",
+			body:        []byte(`{}`),
+			want:        true,
+		},
+		{
+			name:        "empty JSON array should cache",
+			contentType: "application/json",
+			body:        []byte(`[]`),
+			want:        true,
+		},
+		{
+			name:        "JSON null should cache",
+			contentType: "application/json",
+			body:        []byte(`null`),
+			want:        true,
+		},
+		{
+			name:        "empty response with JSON content-type should not cache",
+			contentType: "application/json",
+			body:        []byte{},
+			want:        false,
+		},
+		{
+			name:        "invalid JSON with JSON content-type should not cache",
+			contentType: "application/json",
+			body:        []byte("plain text"),
+			want:        false,
+		},
+		{
+			name:        "plain text with non-JSON content-type should cache",
+			contentType: "text/plain",
+			body:        []byte("plain text"),
+			want:        true,
+		},
+		{
+			name:        "empty response with non-JSON content-type should cache",
+			contentType: "text/plain",
+			body:        []byte{},
+			want:        true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			resp := &http.Response{
+				Header: http.Header{},
+			}
+			if tt.contentType != "" {
+				resp.Header.Set("Content-Type", tt.contentType)
+			}
+
+			got := middleware.ShouldCacheResponse(resp, tt.body)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
