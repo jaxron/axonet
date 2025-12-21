@@ -40,6 +40,7 @@ func (m *MockMiddleware) Process(ctx context.Context, c *http.Client, req *http.
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
+
 	return args.Get(0).(*http.Response), args.Error(1)
 }
 
@@ -72,9 +73,11 @@ func TestClientDo(t *testing.T) { //nolint:funlen
 
 		body, err := io.ReadAll(resp.Body)
 		require.NoError(t, err)
+
 		defer resp.Body.Close()
 
 		var result map[string]string
+
 		err = json.Unmarshal(body, &result)
 		require.NoError(t, err)
 		assert.Equal(t, "success", result["message"])
@@ -86,7 +89,9 @@ func TestClientDo(t *testing.T) { //nolint:funlen
 		mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			body, err := io.ReadAll(r.Body)
 			assert.NoError(t, err)
+
 			var receivedData map[string]string
+
 			err = json.Unmarshal(body, &receivedData)
 			assert.NoError(t, err)
 			assert.Equal(t, "test", receivedData["key"])
@@ -102,6 +107,7 @@ func TestClientDo(t *testing.T) { //nolint:funlen
 		}
 
 		var result map[string]string
+
 		resp, err := NewTestClient().
 			NewRequest().
 			Method(http.MethodPost).
@@ -151,6 +157,7 @@ func TestClientDo(t *testing.T) { //nolint:funlen
 		client := NewTestClient(client.WithMiddleware(middleware))
 
 		ctx, cancel := context.WithCancel(context.Background())
+
 		go func() {
 			time.Sleep(50 * time.Millisecond)
 			cancel()
@@ -173,11 +180,14 @@ func TestClientDo(t *testing.T) { //nolint:funlen
 
 		// Define different middleware types
 		type FirstMiddleware struct{ MockMiddleware }
+
 		type SecondMiddleware struct{ MockMiddleware }
+
 		type ThirdMiddleware struct{ MockMiddleware }
 
-		createMiddleware := func(name string, middlewareType interface{}) clientMiddleware.Middleware {
+		createMiddleware := func(name string, middlewareType any) clientMiddleware.Middleware {
 			var m clientMiddleware.Middleware
+
 			switch middlewareType.(type) {
 			case FirstMiddleware:
 				m = &FirstMiddleware{}
@@ -188,7 +198,7 @@ func TestClientDo(t *testing.T) { //nolint:funlen
 			}
 
 			mockMiddleware := m.(interface {
-				On(methodName string, args ...interface{}) *mock.Call
+				On(methodName string, args ...any) *mock.Call
 			})
 			mockMiddleware.On("SetLogger", mock.AnythingOfType("*logger.BasicLogger")).Return()
 			mockMiddleware.On("Process", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
@@ -199,6 +209,7 @@ func TestClientDo(t *testing.T) { //nolint:funlen
 					assert.NoError(t, err)
 				}).
 				Return(&http.Response{StatusCode: http.StatusOK}, nil)
+
 			return m
 		}
 

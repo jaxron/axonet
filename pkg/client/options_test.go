@@ -44,14 +44,16 @@ func TestWithMiddlewareVariadic(t *testing.T) {
 	type FirstMiddleware struct {
 		*MockMiddleware
 	}
+
 	type SecondMiddleware struct {
 		*MockMiddleware
 	}
+
 	type ThirdMiddleware struct {
 		*MockMiddleware
 	}
 
-	createMockMiddleware := func(name string, middlewareType interface{}) middleware.Middleware {
+	createMockMiddleware := func(name string, middlewareType any) middleware.Middleware {
 		mockMiddleware := &MockMiddleware{}
 		mockMiddleware.On("SetLogger", mock.AnythingOfType("*logger.BasicLogger")).Return()
 		mockMiddleware.On("Process", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
@@ -64,6 +66,7 @@ func TestWithMiddlewareVariadic(t *testing.T) {
 			Return(&http.Response{StatusCode: http.StatusOK}, nil)
 
 		var m middleware.Middleware
+
 		switch middlewareType.(type) {
 		case FirstMiddleware:
 			m = &FirstMiddleware{MockMiddleware: mockMiddleware}
@@ -96,9 +99,9 @@ func TestWithMiddlewareVariadic(t *testing.T) {
 	assert.Equal(t, []string{"first", "second", "third"}, executionOrder)
 
 	// Get the underlying MockMiddleware to assert expectations
-	m1.(*FirstMiddleware).MockMiddleware.AssertExpectations(t)
-	m2.(*SecondMiddleware).MockMiddleware.AssertExpectations(t)
-	m3.(*ThirdMiddleware).MockMiddleware.AssertExpectations(t)
+	m1.(*FirstMiddleware).AssertExpectations(t)
+	m2.(*SecondMiddleware).AssertExpectations(t)
+	m3.(*ThirdMiddleware).AssertExpectations(t)
 }
 
 func TestWithTimeout(t *testing.T) {
@@ -158,6 +161,7 @@ func TestMarshalWith(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var data map[string]string
+
 		err := json.NewDecoder(r.Body).Decode(&data)
 		assert.NoError(t, err)
 		assert.Equal(t, "custom", data["format"])
@@ -165,7 +169,7 @@ func TestMarshalWith(t *testing.T) {
 	}))
 	defer server.Close()
 
-	customMarshal := func(v interface{}) ([]byte, error) {
+	customMarshal := func(v any) ([]byte, error) {
 		return json.Marshal(map[string]string{"format": "custom"})
 	}
 
@@ -190,6 +194,7 @@ func TestUnmarshalWith(t *testing.T) {
 	defer server.Close()
 
 	var result map[string]string
+
 	customUnmarshal := json.Unmarshal
 
 	_, err := NewTestClient().NewRequest().
@@ -212,6 +217,7 @@ func TestEmptyResponseBody(t *testing.T) {
 	defer server.Close()
 
 	var result map[string]string
+
 	_, err := NewTestClient().NewRequest().
 		Method(http.MethodGet).
 		URL(server.URL).
@@ -267,18 +273,18 @@ func (m *MockLogger) Error(msg string) {
 }
 
 // Add these new methods to comply with the logger.Logger interface.
-func (m *MockLogger) Debugf(format string, args ...interface{}) {
+func (m *MockLogger) Debugf(format string, args ...any) {
 	m.Called(format, args)
 }
 
-func (m *MockLogger) Infof(format string, args ...interface{}) {
+func (m *MockLogger) Infof(format string, args ...any) {
 	m.Called(format, args)
 }
 
-func (m *MockLogger) Warnf(format string, args ...interface{}) {
+func (m *MockLogger) Warnf(format string, args ...any) {
 	m.Called(format, args)
 }
 
-func (m *MockLogger) Errorf(format string, args ...interface{}) {
+func (m *MockLogger) Errorf(format string, args ...any) {
 	m.Called(format, args)
 }

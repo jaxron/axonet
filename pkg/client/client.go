@@ -1,4 +1,4 @@
-// package client provides HTTP request handling functionality with various middleware options.
+// Package client provides HTTP request handling functionality with various middleware options.
 package client
 
 import (

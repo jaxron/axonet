@@ -21,6 +21,7 @@ func (v Query) Get(key string) string {
 	if len(vs) == 0 {
 		return ""
 	}
+
 	return vs[0]
 }
 
@@ -55,6 +56,7 @@ func (v Query) Encode() string {
 	for k := range v {
 		keys = append(keys, k)
 	}
+
 	slices.Sort(keys)
 
 	// Encode the keys and values
@@ -74,5 +76,6 @@ func (v Query) Encode() string {
 			buf.WriteString(url.QueryEscape(v))
 		}
 	}
+
 	return buf.String()
 }

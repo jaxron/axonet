@@ -17,7 +17,7 @@ func TestQueryGet(t *testing.T) {
 
 	assert.Equal(t, "bar", q.Get("foo"))
 	assert.Equal(t, "qux", q.Get("baz"))
-	assert.Equal(t, "", q.Get("nonexistent"))
+	assert.Empty(t, q.Get("nonexistent"))
 }
 
 func TestQuerySet(t *testing.T) {
@@ -79,5 +79,5 @@ func TestQueryEncodeEmpty(t *testing.T) {
 	t.Parallel()
 
 	q := client.Query{}
-	assert.Equal(t, "", q.Encode())
+	assert.Empty(t, q.Encode())
 }

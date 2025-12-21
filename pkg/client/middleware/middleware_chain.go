@@ -52,6 +52,15 @@ func (c *Chain) Process(ctx context.Context, httpClient *http.Client, req *http.
 	return c.processMiddleware(ctx, httpClient, req, 0)
 }
 
+// SetLogger updates the logger for all middleware in the chain.
+func (c *Chain) SetLogger(l logger.Logger) {
+	for _, m := range c.middlewares {
+		m.SetLogger(l)
+	}
+
+	c.logger = l
+}
+
 // processMiddleware recursively applies each middleware in the chain.
 func (c *Chain) processMiddleware(ctx context.Context, httpClient *http.Client, req *http.Request, index int) (*http.Response, error) {
 	// If we've reached the end of the middleware chain, perform the request
@@ -69,6 +78,7 @@ func (c *Chain) processMiddleware(ctx context.Context, httpClient *http.Client, 
 			logger.String("middleware", reflect.TypeOf(middleware).String()),
 			logger.Duration("duration", time.Since(start)),
 		).Debug("Middleware executed")
+
 		return c.processMiddleware(ctx, client, req, index+1)
 	})
 
@@ -88,6 +98,7 @@ func (c *Chain) performRequest(ctx context.Context, httpClient *http.Client, req
 
 	// Send the request
 	resp, err := httpClient.Do(req.WithContext(ctx))
+
 	duration := time.Since(start)
 	if err != nil {
 		c.logger.WithFields(
@@ -98,6 +109,7 @@ func (c *Chain) performRequest(ctx context.Context, httpClient *http.Client, req
 		if errors.Is(err, context.DeadlineExceeded) {
 			return nil, fmt.Errorf("%w: %w", errors.ErrTimeout, err)
 		}
+
 		return nil, fmt.Errorf("%w: %w", errors.ErrNetwork, err)
 	}
 
@@ -117,17 +129,11 @@ func (c *Chain) addOrReplace(m Middleware) {
 		if reflect.TypeOf(existing) == reflect.TypeOf(m) {
 			c.middlewares[i] = m
 			m.SetLogger(c.logger)
+
 			return
 		}
 	}
+
 	c.middlewares = append(c.middlewares, m)
 	m.SetLogger(c.logger)
-}
-
-// SetLogger updates the logger for all middleware in the chain.
-func (c *Chain) SetLogger(l logger.Logger) {
-	for _, m := range c.middlewares {
-		m.SetLogger(l)
-	}
-	c.logger = l
 }

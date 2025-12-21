@@ -14,10 +14,10 @@ import (
 )
 
 // MarshalFunc is a function type that matches standard marshal functions.
-type MarshalFunc func(interface{}) ([]byte, error)
+type MarshalFunc func(any) ([]byte, error)
 
 // UnmarshalFunc is a function type that matches standard unmarshal functions.
-type UnmarshalFunc func([]byte, interface{}) error
+type UnmarshalFunc func([]byte, any) error
 
 // Option is a function type that modifies the Client configuration.
 type Option func(*Client)
@@ -64,11 +64,11 @@ type Request struct {
 	client        *Client
 	marshalFunc   MarshalFunc
 	unmarshalFunc UnmarshalFunc
-	result        interface{}
+	result        any
 	method        string
 	url           string
 	body          []byte
-	marshalBody   interface{}
+	marshalBody   any
 	header        http.Header
 	query         Query
 }
@@ -114,7 +114,7 @@ func (rb *Request) UnmarshalWith(fn UnmarshalFunc) *Request {
 }
 
 // Result sets the result to unmarshal the response into.
-func (rb *Request) Result(result interface{}) *Request {
+func (rb *Request) Result(result any) *Request {
 	rb.result = result
 	return rb
 }
@@ -126,7 +126,7 @@ func (rb *Request) Body(body []byte) *Request {
 }
 
 // MarshalBody sets the body of the request after marshaling the provided struct.
-func (rb *Request) MarshalBody(body interface{}) *Request {
+func (rb *Request) MarshalBody(body any) *Request {
 	rb.marshalBody = body
 	return rb
 }
@@ -158,6 +158,7 @@ func (rb *Request) Build(ctx context.Context) (*http.Request, error) {
 		if err != nil {
 			return nil, fmt.Errorf("%w: %w", errors.ErrRequestCreation, err)
 		}
+
 		bodyReader = bytes.NewReader(marshaledBody)
 	}
 
@@ -213,7 +214,8 @@ func (rb *Request) Do(ctx context.Context) (*http.Response, error) {
 			return resp, errors.ErrEmptyResponseBody
 		}
 
-		if err = rb.unmarshalFunc(body, rb.result); err != nil {
+		err = rb.unmarshalFunc(body, rb.result)
+		if err != nil {
 			return resp, err
 		}
 	}
