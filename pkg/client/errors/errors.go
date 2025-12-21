@@ -15,6 +15,8 @@ var (
 	ErrNetwork   = errors.New("network error")
 	ErrTimeout   = errors.New("timeout error")
 	ErrBadStatus = errors.New("bad status code")
+
+	ErrEmptyResponseBody = errors.New("response body is empty")
 )
 
 // IsTemporary returns true if the error is considered temporary and can be retried.

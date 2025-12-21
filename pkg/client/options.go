@@ -209,6 +209,10 @@ func (rb *Request) Do(ctx context.Context) (*http.Response, error) {
 		resp.Body.Close()
 		resp.Body = io.NopCloser(bytes.NewBuffer(body))
 
+		if len(body) == 0 {
+			return resp, errors.ErrEmptyResponseBody
+		}
+
 		if err = rb.unmarshalFunc(body, rb.result); err != nil {
 			return resp, err
 		}

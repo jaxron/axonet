@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jaxron/axonet/pkg/client"
+	"github.com/jaxron/axonet/pkg/client/errors"
 	"github.com/jaxron/axonet/pkg/client/logger"
 	"github.com/jaxron/axonet/pkg/client/middleware"
 	"github.com/stretchr/testify/assert"
@@ -200,6 +201,25 @@ func TestUnmarshalWith(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, "custom", result["format"])
+}
+
+func TestEmptyResponseBody(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	var result map[string]string
+	_, err := NewTestClient().NewRequest().
+		Method(http.MethodGet).
+		URL(server.URL).
+		Result(&result).
+		Do(context.Background())
+
+	require.Error(t, err)
+	assert.ErrorIs(t, err, errors.ErrEmptyResponseBody)
 }
 
 func TestQuery(t *testing.T) {
