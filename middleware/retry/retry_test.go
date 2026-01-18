@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/jaxron/axonet/middleware/retry"
-	"github.com/jaxron/axonet/pkg/client/errors"
+	"github.com/jaxron/axonet/pkg/client/errs"
 	"github.com/jaxron/axonet/pkg/client/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -45,7 +45,7 @@ func TestRetryMiddleware(t *testing.T) {
 		handler := func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
 			attempts++
 			if attempts < maxAttempts {
-				return nil, errors.ErrTemporary
+				return nil, errs.ErrTemporary
 			}
 			return &http.Response{StatusCode: http.StatusOK}, nil
 		}
@@ -67,13 +67,13 @@ func TestRetryMiddleware(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
 		handler := func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
 			attempts++
-			return nil, errors.ErrTemporary
+			return nil, errs.ErrTemporary
 		}
 
 		resp, err := middleware.Process(context.Background(), &http.Client{}, req, handler)
 		require.Error(t, err)
 		assert.Nil(t, resp)
-		require.ErrorIs(t, err, errors.ErrTemporary)
+		require.ErrorIs(t, err, errs.ErrTemporary)
 		assert.Equal(t, int(maxAttempts)+1, attempts) // The middleware makes one more attempt than maxAttempts
 	})
 
@@ -87,13 +87,13 @@ func TestRetryMiddleware(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
 		handler := func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
 			attempts++
-			return nil, errors.ErrPermanent
+			return nil, errs.ErrPermanent
 		}
 
 		resp, err := middleware.Process(context.Background(), &http.Client{}, req, handler)
 		require.Error(t, err)
 		assert.Nil(t, resp)
-		require.ErrorIs(t, err, errors.ErrPermanent)
+		require.ErrorIs(t, err, errs.ErrPermanent)
 		assert.Equal(t, 1, attempts)
 	})
 
@@ -111,7 +111,7 @@ func TestRetryMiddleware(t *testing.T) {
 			if attempts == 2 {
 				cancel()
 			}
-			return nil, errors.ErrTemporary
+			return nil, errs.ErrTemporary
 		}
 
 		resp, err := middleware.Process(ctx, &http.Client{}, req, handler)

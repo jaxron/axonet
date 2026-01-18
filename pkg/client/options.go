@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/jaxron/axonet/pkg/client/errors"
+	"github.com/jaxron/axonet/pkg/client/errs"
 	"github.com/jaxron/axonet/pkg/client/logger"
 	"github.com/jaxron/axonet/pkg/client/middleware"
 )
@@ -147,7 +147,7 @@ func (rb *Request) Header(key, value string) *Request {
 func (rb *Request) Build(ctx context.Context) (*http.Request, error) {
 	// Ensure only one of the body or marshalBody is set
 	if rb.body != nil && rb.marshalBody != nil {
-		return nil, errors.ErrBodyMarshalConflict
+		return nil, errs.ErrBodyMarshalConflict
 	}
 
 	var bodyReader io.Reader
@@ -156,7 +156,7 @@ func (rb *Request) Build(ctx context.Context) (*http.Request, error) {
 	if rb.marshalBody != nil {
 		marshaledBody, err := rb.marshalFunc(rb.marshalBody)
 		if err != nil {
-			return nil, fmt.Errorf("%w: %w", errors.ErrRequestCreation, err)
+			return nil, fmt.Errorf("%w: %w", errs.ErrRequestCreation, err)
 		}
 
 		bodyReader = bytes.NewReader(marshaledBody)
@@ -170,7 +170,7 @@ func (rb *Request) Build(ctx context.Context) (*http.Request, error) {
 	// Create a new HTTP request
 	req, err := http.NewRequestWithContext(ctx, rb.method, rb.url, bodyReader)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w", errors.ErrRequestCreation, err)
+		return nil, fmt.Errorf("%w: %w", errs.ErrRequestCreation, err)
 	}
 
 	// Set the query parameters
@@ -211,7 +211,7 @@ func (rb *Request) Do(ctx context.Context) (*http.Response, error) {
 		resp.Body = io.NopCloser(bytes.NewBuffer(body))
 
 		if len(body) == 0 {
-			return resp, errors.ErrEmptyResponseBody
+			return resp, errs.ErrEmptyResponseBody
 		}
 
 		err = rb.unmarshalFunc(body, rb.result)

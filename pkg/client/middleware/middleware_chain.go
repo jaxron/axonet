@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/jaxron/axonet/pkg/client/errors"
+	"github.com/jaxron/axonet/pkg/client/errs"
 	"github.com/jaxron/axonet/pkg/client/logger"
 )
 
@@ -106,11 +106,11 @@ func (c *Chain) performRequest(ctx context.Context, httpClient *http.Client, req
 			logger.Duration("duration", duration),
 		).Debug("Request failed")
 
-		if errors.Is(err, context.DeadlineExceeded) {
-			return nil, fmt.Errorf("%w: %w", errors.ErrTimeout, err)
+		if errs.Is(err, context.DeadlineExceeded) {
+			return nil, fmt.Errorf("%w: %w", errs.ErrTimeout, err)
 		}
 
-		return nil, fmt.Errorf("%w: %w", errors.ErrNetwork, err)
+		return nil, fmt.Errorf("%w: %w", errs.ErrNetwork, err)
 	}
 
 	// Log the response details

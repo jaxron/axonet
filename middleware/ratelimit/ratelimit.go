@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	clientErrors "github.com/jaxron/axonet/pkg/client/errors"
+	"github.com/jaxron/axonet/pkg/client/errs"
 	"github.com/jaxron/axonet/pkg/client/logger"
 	"github.com/jaxron/axonet/pkg/client/middleware"
 	"golang.org/x/time/rate"
@@ -30,7 +30,7 @@ func (m *RateLimiterMiddleware) Process(ctx context.Context, httpClient *http.Cl
 	// Wait for rate limiter permission
 	if err := m.limiter.Wait(ctx); err != nil {
 		if strings.Contains(err.Error(), "would exceed context deadline") {
-			return nil, clientErrors.ErrTimeout
+			return nil, errs.ErrTimeout
 		}
 		return nil, err
 	}

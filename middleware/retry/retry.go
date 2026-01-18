@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
-	clientErrors "github.com/jaxron/axonet/pkg/client/errors"
+	"github.com/jaxron/axonet/pkg/client/errs"
 	"github.com/jaxron/axonet/pkg/client/logger"
 	"github.com/jaxron/axonet/pkg/client/middleware"
 )
@@ -67,18 +67,18 @@ func (m *RetryMiddleware) handleRetryError(resp *http.Response, err error) error
 		switch {
 		case resp.StatusCode >= 500:
 			// Server errors are typically temporary
-			return clientErrors.ErrBadStatus
+			return errs.ErrBadStatus
 		case resp.StatusCode == http.StatusTooManyRequests:
 			// Too Many Requests - should be retried
-			return clientErrors.ErrBadStatus
+			return errs.ErrBadStatus
 		case resp.StatusCode >= 400:
 			// Client errors are typically permanent
-			return backoff.Permanent(clientErrors.ErrBadStatus)
+			return backoff.Permanent(errs.ErrBadStatus)
 		}
 	}
 
 	if err != nil {
-		if clientErrors.IsTemporary(err) {
+		if errs.IsTemporary(err) {
 			return err // This will trigger a retry for temporary errors
 		}
 		return backoff.Permanent(err) // This will stop retries for permanent errors

@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/jaxron/axonet/pkg/client"
-	"github.com/jaxron/axonet/pkg/client/errors"
+	"github.com/jaxron/axonet/pkg/client/errs"
 	"github.com/jaxron/axonet/pkg/client/logger"
 	"github.com/jaxron/axonet/pkg/client/middleware"
 	"github.com/stretchr/testify/assert"
@@ -38,6 +38,11 @@ func TestWithMiddleware(t *testing.T) {
 
 func TestWithMiddlewareVariadic(t *testing.T) {
 	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
 
 	executionOrder := []string{}
 
@@ -92,7 +97,7 @@ func TestWithMiddlewareVariadic(t *testing.T) {
 
 	_, err := c.NewRequest().
 		Method(http.MethodGet).
-		URL("http://example.com").
+		URL(server.URL).
 		Do(context.Background())
 
 	require.NoError(t, err)
@@ -141,6 +146,11 @@ func TestWithTimeout(t *testing.T) {
 func TestWithLogger(t *testing.T) {
 	t.Parallel()
 
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
 	mockLogger := &MockLogger{}
 	mockLogger.On("WithFields", mock.Anything).Return(mockLogger)
 	mockLogger.On("Debug", mock.Anything).Return()
@@ -149,7 +159,7 @@ func TestWithLogger(t *testing.T) {
 
 	_, err := c.NewRequest().
 		Method(http.MethodGet).
-		URL("http://example.com").
+		URL(server.URL).
 		Do(context.Background())
 
 	require.NoError(t, err)
@@ -225,7 +235,7 @@ func TestEmptyResponseBody(t *testing.T) {
 		Do(context.Background())
 
 	require.Error(t, err)
-	assert.ErrorIs(t, err, errors.ErrEmptyResponseBody)
+	assert.ErrorIs(t, err, errs.ErrEmptyResponseBody)
 }
 
 func TestQuery(t *testing.T) {

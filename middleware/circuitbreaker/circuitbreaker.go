@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	clientErrors "github.com/jaxron/axonet/pkg/client/errors"
+	"github.com/jaxron/axonet/pkg/client/errs"
 	"github.com/jaxron/axonet/pkg/client/logger"
 	"github.com/jaxron/axonet/pkg/client/middleware"
 	"github.com/sony/gobreaker"
@@ -72,7 +72,7 @@ func (m *CircuitBreakerMiddleware) Process(ctx context.Context, httpClient *http
 	// Type assertion to get the response
 	resp, ok := result.(*http.Response)
 	if !ok {
-		return nil, clientErrors.ErrUnreachable
+		return nil, errs.ErrUnreachable
 	}
 
 	// Note: we let the user handle response

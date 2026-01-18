@@ -10,7 +10,7 @@ import (
 	"strconv"
 
 	"github.com/cespare/xxhash"
-	clientErrors "github.com/jaxron/axonet/pkg/client/errors"
+	"github.com/jaxron/axonet/pkg/client/errs"
 	"github.com/jaxron/axonet/pkg/client/logger"
 	"github.com/jaxron/axonet/pkg/client/middleware"
 	"golang.org/x/sync/singleflight"
@@ -54,7 +54,7 @@ func (m *SingleFlightMiddleware) Process(ctx context.Context, httpClient *http.C
 	// Type assertion to get the response
 	resp, ok := result.(*http.Response)
 	if !ok {
-		return nil, clientErrors.ErrUnreachable
+		return nil, errs.ErrUnreachable
 	}
 
 	// Note: we let the user handle response

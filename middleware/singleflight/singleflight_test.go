@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/jaxron/axonet/middleware/singleflight"
-	"github.com/jaxron/axonet/pkg/client/errors"
+	"github.com/jaxron/axonet/pkg/client/errs"
 	"github.com/jaxron/axonet/pkg/client/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -140,14 +140,14 @@ func TestSingleFlightMiddleware(t *testing.T) {
 		middleware.SetLogger(logger.NewBasicLogger())
 
 		handler := func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
-			return nil, errors.ErrNetwork
+			return nil, errs.ErrNetwork
 		}
 
 		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
 		resp, err := middleware.Process(context.Background(), &http.Client{}, req, handler)
 		require.Error(t, err)
 		assert.Nil(t, resp)
-		assert.ErrorIs(t, err, errors.ErrNetwork)
+		assert.ErrorIs(t, err, errs.ErrNetwork)
 	})
 
 	t.Run("Request body can be read after key generation", func(t *testing.T) {
