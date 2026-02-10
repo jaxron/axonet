@@ -38,7 +38,7 @@ func New() *SingleFlightMiddleware {
 	}
 }
 
-// Process applies the singleflight pattern before passing the request to the next middleware.
+// Process deduplicates concurrent identical requests.
 func (m *SingleFlightMiddleware) Process(ctx context.Context, httpClient *http.Client, req *http.Request, next middleware.NextFunc) (*http.Response, error) {
 	// Generate a unique key for the request
 	key, err := m.generateRequestKey(req)
@@ -78,9 +78,9 @@ func (m *SingleFlightMiddleware) generateRequestKey(req *http.Request) (string, 
 		return "", fmt.Errorf("%w: %w", ErrKeyGeneration, err)
 	}
 
-	// Hash headers (excluding Authorization)
+	// Hash headers
 	for key, values := range req.Header {
-		if key != "Authorization" {
+		if key != "Authorization" && key != "Cookie" {
 			if err := writeToHash([]byte(key+fmt.Sprint(values)), ErrHashHeader); err != nil {
 				return "", fmt.Errorf("%w: %w", ErrKeyGeneration, err)
 			}

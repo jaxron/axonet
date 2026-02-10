@@ -282,7 +282,6 @@ func (m *MockLogger) Error(msg string) {
 	m.Called(msg)
 }
 
-// Add these new methods to comply with the logger.Logger interface.
 func (m *MockLogger) Debugf(format string, args ...any) {
 	m.Called(format, args)
 }

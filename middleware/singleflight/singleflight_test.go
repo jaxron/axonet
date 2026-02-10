@@ -133,6 +133,41 @@ func TestSingleFlightMiddleware(t *testing.T) {
 		assert.Equal(t, len(bodies), requestCount, "Expected each request with different body to be processed")
 	})
 
+	t.Run("Requests with different Cookie headers are deduplicated", func(t *testing.T) {
+		t.Parallel()
+
+		middleware := singleflight.New()
+		middleware.SetLogger(logger.NewBasicLogger())
+
+		requestCount := 0
+		var mu sync.Mutex
+
+		handler := func(_ context.Context, _ *http.Client, _ *http.Request) (*http.Response, error) { //nolint:unparam
+			mu.Lock()
+			requestCount++
+			mu.Unlock()
+			time.Sleep(100 * time.Millisecond) // Simulate work
+			return &http.Response{StatusCode: http.StatusOK}, nil
+		}
+
+		var wg sync.WaitGroup
+		cookies := []string{"session=abc", "session=def", "session=ghi"}
+		for _, cookie := range cookies {
+			wg.Add(1)
+			go func(cookie string) {
+				defer wg.Done()
+				req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
+				req.Header.Set("Cookie", cookie)
+				resp, err := middleware.Process(context.Background(), &http.Client{}, req, handler)
+				assert.NoError(t, err)
+				assert.Equal(t, http.StatusOK, resp.StatusCode)
+			}(cookie)
+		}
+		wg.Wait()
+
+		assert.Equal(t, 1, requestCount, "Expected requests with different cookies to be deduplicated")
+	})
+
 	t.Run("Error handling", func(t *testing.T) {
 		t.Parallel()
 

@@ -36,7 +36,7 @@ func New(cookies [][]*http.Cookie) *CookieMiddleware {
 	return m
 }
 
-// Process applies cookie logic before passing the request to the next middleware.
+// Process rotates through available cookie sets for each request.
 func (m *CookieMiddleware) Process(ctx context.Context, httpClient *http.Client, req *http.Request, next middleware.NextFunc) (*http.Response, error) {
 	// Check if the cookie middleware is disabled via context
 	if isDisabled, ok := ctx.Value(SkipCookieKey{}).(bool); ok && isDisabled {
@@ -61,7 +61,7 @@ func (m *CookieMiddleware) Process(ctx context.Context, httpClient *http.Client,
 	return next(ctx, httpClient, req)
 }
 
-// selectCookieSet chooses the next cookie set to use.
+// selectCookieSet returns the next cookie set in round-robin order.
 func (m *CookieMiddleware) selectCookieSet() []*http.Cookie {
 	m.mu.RLock()
 	defer m.mu.RUnlock()

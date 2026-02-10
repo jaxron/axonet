@@ -142,12 +142,15 @@ func (m *RedisMiddleware) cacheResponse(ctx context.Context, key string, resp *h
 	}
 }
 
-// GenerateKey creates a unique cache key based on the request method, URL, headers, and body.
+// GenerateKey hashes method, URL, non-sensitive headers, and body into a cache key.
 func (m *RedisMiddleware) GenerateKey(req *http.Request) string {
 	h := xxhash.New()
 	h.Write([]byte(req.Method))
 	h.Write([]byte(req.URL.String()))
 	for key, values := range req.Header {
+		if key == "Authorization" || key == "Cookie" {
+			continue
+		}
 		h.Write([]byte(key))
 		for _, value := range values {
 			h.Write([]byte(value))

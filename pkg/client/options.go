@@ -167,7 +167,7 @@ func (rb *Request) Build(ctx context.Context) (*http.Request, error) {
 		bodyReader = bytes.NewReader(rb.body)
 	}
 
-	// Create a new HTTP request
+	// Build HTTP request
 	req, err := http.NewRequestWithContext(ctx, rb.method, rb.url, bodyReader)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", errs.ErrRequestCreation, err)

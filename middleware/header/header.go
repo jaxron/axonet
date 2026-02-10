@@ -22,7 +22,7 @@ func New(headers http.Header) *HeaderMiddleware {
 	}
 }
 
-// Process applies headers to the request before passing it to the next middleware.
+// Process appends configured headers to each request.
 func (m *HeaderMiddleware) Process(ctx context.Context, httpClient *http.Client, req *http.Request, next middleware.NextFunc) (*http.Response, error) {
 	for key, values := range m.headers {
 		for _, value := range values {

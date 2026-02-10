@@ -123,7 +123,7 @@ func (c *Chain) performRequest(ctx context.Context, httpClient *http.Client, req
 	return resp, nil
 }
 
-// addOrReplace adds a new middleware or replaces an existing one of the same type.
+// addOrReplace ensures only one instance of each middleware type exists in the chain.
 func (c *Chain) addOrReplace(m Middleware) {
 	for i, existing := range c.middlewares {
 		if reflect.TypeOf(existing) == reflect.TypeOf(m) {

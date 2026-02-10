@@ -29,7 +29,7 @@ func New(maxAttempts uint64, initialInterval, maxInterval time.Duration) *RetryM
 	}
 }
 
-// Process applies retry logic before passing the request to the next middleware.
+// Process retries failed requests with exponential backoff.
 func (m *RetryMiddleware) Process(ctx context.Context, httpClient *http.Client, req *http.Request, next middleware.NextFunc) (*http.Response, error) {
 	// Create an exponential backoff strategy with a maximum number of retries
 	expBackoff := backoff.WithMaxRetries(backoff.NewExponentialBackOff(

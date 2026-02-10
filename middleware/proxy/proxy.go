@@ -40,7 +40,7 @@ func New(proxies []*url.URL) *ProxyMiddleware {
 	return m
 }
 
-// Process applies proxy logic before passing the request to the next middleware.
+// Process rotates through available proxies for each request.
 func (m *ProxyMiddleware) Process(ctx context.Context, httpClient *http.Client, req *http.Request, next middleware.NextFunc) (*http.Response, error) {
 	if skipProxy, ok := ctx.Value(SkipProxyKey{}).(bool); ok && skipProxy {
 		return next(ctx, httpClient, req)
@@ -64,7 +64,7 @@ func (m *ProxyMiddleware) Process(ctx context.Context, httpClient *http.Client, 
 	return next(ctx, httpClient, req)
 }
 
-// selectProxy chooses the next proxy to use.
+// selectProxy returns the next proxy in round-robin order.
 func (m *ProxyMiddleware) selectProxy() *url.URL {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -96,7 +96,7 @@ func (m *ProxyMiddleware) applyProxyToClient(httpClient *http.Client, proxy *url
 		return nil
 	}
 
-	// Create a new client with the modified transport
+	// Clone client with proxy transport
 	return &http.Client{
 		Transport:     newTransport,
 		CheckRedirect: httpClient.CheckRedirect,

@@ -36,6 +36,30 @@ func TestRedisMiddleware(t *testing.T) {
 		assert.NotEqual(t, key2, key3, "Keys for different methods and paths should be different")
 	})
 
+	t.Run("Requests with different Cookie or Authorization headers produce same key", func(t *testing.T) {
+		t.Parallel()
+
+		middleware := redis.RedisMiddleware{}
+		middleware.SetLogger(logger.NewBasicLogger())
+
+		req1 := httptest.NewRequest(http.MethodGet, "http://example.com/path", nil)
+		req1.Header.Set("Cookie", "session=abc")
+		req1.Header.Set("Authorization", "Bearer token1")
+
+		req2 := httptest.NewRequest(http.MethodGet, "http://example.com/path", nil)
+		req2.Header.Set("Cookie", "session=xyz")
+		req2.Header.Set("Authorization", "Bearer token2")
+
+		req3 := httptest.NewRequest(http.MethodGet, "http://example.com/path", nil)
+
+		key1 := middleware.GenerateKey(req1)
+		key2 := middleware.GenerateKey(req2)
+		key3 := middleware.GenerateKey(req3)
+
+		assert.Equal(t, key1, key2, "Keys should match despite different Cookie/Authorization headers")
+		assert.Equal(t, key1, key3, "Keys should match with or without Cookie/Authorization headers")
+	})
+
 	t.Run("Cache and reconstruct response", func(t *testing.T) {
 		t.Parallel()
 
