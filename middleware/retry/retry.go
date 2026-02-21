@@ -67,13 +67,13 @@ func (m *RetryMiddleware) handleRetryError(resp *http.Response, err error) error
 		switch {
 		case resp.StatusCode >= 500:
 			// Server errors are typically temporary
-			return errs.ErrBadStatus
+			return &errs.StatusError{StatusCode: resp.StatusCode}
 		case resp.StatusCode == http.StatusTooManyRequests:
 			// Too Many Requests - should be retried
-			return errs.ErrBadStatus
+			return &errs.StatusError{StatusCode: resp.StatusCode}
 		case resp.StatusCode >= 400:
 			// Client errors are typically permanent
-			return backoff.Permanent(errs.ErrBadStatus)
+			return backoff.Permanent(&errs.StatusError{StatusCode: resp.StatusCode})
 		}
 	}
 

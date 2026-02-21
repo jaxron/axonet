@@ -2,6 +2,7 @@ package retry_test
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -95,6 +96,69 @@ func TestRetryMiddleware(t *testing.T) {
 		assert.Nil(t, resp)
 		require.ErrorIs(t, err, errs.ErrPermanent)
 		assert.Equal(t, 1, attempts)
+	})
+
+	t.Run("Server error carries status code", func(t *testing.T) {
+		t.Parallel()
+
+		middleware := retry.New(0, 10*time.Millisecond, 100*time.Millisecond)
+		middleware.SetLogger(logger.NewBasicLogger())
+
+		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
+		handler := func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
+			return &http.Response{StatusCode: http.StatusInternalServerError}, nil
+		}
+
+		_, err := middleware.Process(context.Background(), &http.Client{}, req, handler)
+		require.Error(t, err)
+		require.ErrorIs(t, err, errs.ErrBadStatus)
+
+		var statusErr *errs.StatusError
+		require.True(t, errors.As(err, &statusErr))
+		assert.Equal(t, http.StatusInternalServerError, statusErr.StatusCode)
+	})
+
+	t.Run("Too many requests carries status code", func(t *testing.T) {
+		t.Parallel()
+
+		middleware := retry.New(0, 10*time.Millisecond, 100*time.Millisecond)
+		middleware.SetLogger(logger.NewBasicLogger())
+
+		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
+		handler := func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
+			return &http.Response{StatusCode: http.StatusTooManyRequests}, nil
+		}
+
+		_, err := middleware.Process(context.Background(), &http.Client{}, req, handler)
+		require.Error(t, err)
+		require.ErrorIs(t, err, errs.ErrBadStatus)
+
+		var statusErr *errs.StatusError
+		require.True(t, errors.As(err, &statusErr))
+		assert.Equal(t, http.StatusTooManyRequests, statusErr.StatusCode)
+	})
+
+	t.Run("Client error carries status code and is permanent", func(t *testing.T) {
+		t.Parallel()
+
+		attempts := 0
+		middleware := retry.New(3, 10*time.Millisecond, 100*time.Millisecond)
+		middleware.SetLogger(logger.NewBasicLogger())
+
+		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
+		handler := func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
+			attempts++
+			return &http.Response{StatusCode: http.StatusForbidden}, nil
+		}
+
+		_, err := middleware.Process(context.Background(), &http.Client{}, req, handler)
+		require.Error(t, err)
+		require.ErrorIs(t, err, errs.ErrBadStatus)
+		assert.Equal(t, 1, attempts) // Permanent error so no retries
+
+		var statusErr *errs.StatusError
+		require.True(t, errors.As(err, &statusErr))
+		assert.Equal(t, http.StatusForbidden, statusErr.StatusCode)
 	})
 
 	t.Run("Respect context cancellation", func(t *testing.T) {

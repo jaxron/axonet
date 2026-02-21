@@ -2,6 +2,7 @@ package errs
 
 import (
 	"errors"
+	"fmt"
 )
 
 var (
@@ -18,6 +19,19 @@ var (
 
 	ErrEmptyResponseBody = errors.New("response body is empty")
 )
+
+// StatusError wraps ErrBadStatus with the actual HTTP status code.
+type StatusError struct {
+	StatusCode int
+}
+
+func (e *StatusError) Error() string {
+	return fmt.Sprintf("bad status code: %d", e.StatusCode)
+}
+
+func (e *StatusError) Unwrap() error {
+	return ErrBadStatus
+}
 
 // IsTemporary returns true if the error is considered temporary and can be retried.
 func IsTemporary(err error) bool {
