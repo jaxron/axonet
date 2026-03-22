@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -149,12 +150,17 @@ func (m *RedisMiddleware) GenerateKey(req *http.Request) (string, error) {
 	h := xxhash.New()
 	h.Write([]byte(req.Method))
 	h.Write([]byte(req.URL.String()))
-	for key, values := range req.Header {
-		if key == "Authorization" || key == "Cookie" {
-			continue
+	// Sort header keys for deterministic hashing
+	headerKeys := make([]string, 0, len(req.Header))
+	for key := range req.Header {
+		if key != "Authorization" && key != "Cookie" {
+			headerKeys = append(headerKeys, key)
 		}
+	}
+	slices.Sort(headerKeys)
+	for _, key := range headerKeys {
 		h.Write([]byte(key))
-		for _, value := range values {
+		for _, value := range req.Header[key] {
 			h.Write([]byte(value))
 		}
 	}

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"strconv"
 
 	"github.com/cespare/xxhash"
@@ -106,12 +107,17 @@ func (m *SingleFlightMiddleware) generateRequestKey(req *http.Request) (string, 
 		return "", fmt.Errorf("%w: %w", ErrKeyGeneration, err)
 	}
 
-	// Hash headers
-	for key, values := range req.Header {
+	// Hash headers in sorted order for deterministic keys
+	headerKeys := make([]string, 0, len(req.Header))
+	for key := range req.Header {
 		if key != "Authorization" && key != "Cookie" {
-			if err := writeToHash([]byte(key+fmt.Sprint(values)), ErrHashHeader); err != nil {
-				return "", fmt.Errorf("%w: %w", ErrKeyGeneration, err)
-			}
+			headerKeys = append(headerKeys, key)
+		}
+	}
+	slices.Sort(headerKeys)
+	for _, key := range headerKeys {
+		if err := writeToHash([]byte(key+fmt.Sprint(req.Header[key])), ErrHashHeader); err != nil {
+			return "", fmt.Errorf("%w: %w", ErrKeyGeneration, err)
 		}
 	}
 
