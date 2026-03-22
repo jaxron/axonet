@@ -69,18 +69,19 @@ func (c *Chain) processMiddleware(ctx context.Context, httpClient *http.Client, 
 	}
 
 	start := time.Now()
-	middleware := c.middlewares[index]
+	m := c.middlewares[index]
 
-	// Otherwise, apply the middleware and continue
-	resp, err := middleware.Process(ctx, httpClient, req, func(ctx context.Context, client *http.Client, req *http.Request) (*http.Response, error) {
-		c.logger.WithFields(
-			logger.Int("index", index),
-			logger.String("middleware", reflect.TypeOf(middleware).String()),
-			logger.Duration("duration", time.Since(start)),
-		).Debug("Middleware executed")
-
+	// Apply the middleware and continue
+	resp, err := m.Process(ctx, httpClient, req, func(ctx context.Context, client *http.Client, req *http.Request) (*http.Response, error) {
 		return c.processMiddleware(ctx, client, req, index+1)
 	})
+
+	// Log total time spent inside this middleware layer
+	c.logger.WithFields(
+		logger.Int("index", index),
+		logger.String("middleware", reflect.TypeOf(m).String()),
+		logger.Duration("duration", time.Since(start)),
+	).Debug("Middleware executed")
 
 	return resp, err
 }

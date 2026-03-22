@@ -37,8 +37,7 @@ func (e *StatusError) Unwrap() error {
 func IsTemporary(err error) bool {
 	return (errors.Is(err, ErrNetwork) ||
 		errors.Is(err, ErrTimeout) ||
-		errors.Is(err, ErrTemporary) ||
-		errors.Is(err, ErrEmptyResponseBody)) &&
+		errors.Is(err, ErrTemporary)) &&
 		!errors.Is(err, ErrPermanent)
 }
 

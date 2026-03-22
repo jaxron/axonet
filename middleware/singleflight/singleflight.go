@@ -30,6 +30,12 @@ type SingleFlightMiddleware struct {
 	logger  logger.Logger
 }
 
+// sfResponse holds response data that can be safely shared across goroutines.
+type sfResponse struct {
+	resp      *http.Response
+	bodyBytes []byte
+}
+
 // New creates a new SingleFlightMiddleware instance.
 func New() *SingleFlightMiddleware {
 	return &SingleFlightMiddleware{
@@ -48,17 +54,39 @@ func (m *SingleFlightMiddleware) Process(ctx context.Context, httpClient *http.C
 
 	// Use singleflight to execute the request
 	result, err, _ := m.sfGroup.Do(key, func() (interface{}, error) {
-		return next(ctx, httpClient, req)
+		resp, err := next(ctx, httpClient, req)
+		if err != nil {
+			return nil, err
+		}
+
+		// Buffer the body so it can be cloned for each caller
+		var bodyBytes []byte
+		if resp.Body != nil {
+			var readErr error
+			bodyBytes, readErr = io.ReadAll(resp.Body)
+			resp.Body.Close()
+			if readErr != nil {
+				return nil, fmt.Errorf("%w: %w", ErrReadBody, readErr)
+			}
+			resp.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+		}
+
+		return &sfResponse{resp: resp, bodyBytes: bodyBytes}, nil
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	// Type assertion to get the response
-	resp, ok := result.(*http.Response)
+	sfResp, ok := result.(*sfResponse)
 	if !ok {
 		return nil, errs.ErrUnreachable
 	}
 
-	// Note: we let the user handle response
-	return resp, err
+	// Clone response with a fresh body reader for this caller
+	cloned := *sfResp.resp
+	cloned.Body = io.NopCloser(bytes.NewReader(sfResp.bodyBytes))
+	return &cloned, nil
 }
 
 // generateRequestKey generates a unique key for the request based on the method, URL, headers, and body.

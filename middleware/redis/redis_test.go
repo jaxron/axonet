@@ -27,9 +27,12 @@ func TestRedisMiddleware(t *testing.T) {
 		req2 := httptest.NewRequest(http.MethodGet, "http://example.com/path2", nil)
 		req3 := httptest.NewRequest(http.MethodPost, "http://example.com/path1", nil)
 
-		key1 := middleware.GenerateKey(req1)
-		key2 := middleware.GenerateKey(req2)
-		key3 := middleware.GenerateKey(req3)
+		key1, err := middleware.GenerateKey(req1)
+		require.NoError(t, err)
+		key2, err := middleware.GenerateKey(req2)
+		require.NoError(t, err)
+		key3, err := middleware.GenerateKey(req3)
+		require.NoError(t, err)
 
 		assert.NotEqual(t, key1, key2, "Keys for different paths should be different")
 		assert.NotEqual(t, key1, key3, "Keys for different methods should be different")
@@ -52,9 +55,12 @@ func TestRedisMiddleware(t *testing.T) {
 
 		req3 := httptest.NewRequest(http.MethodGet, "http://example.com/path", nil)
 
-		key1 := middleware.GenerateKey(req1)
-		key2 := middleware.GenerateKey(req2)
-		key3 := middleware.GenerateKey(req3)
+		key1, err := middleware.GenerateKey(req1)
+		require.NoError(t, err)
+		key2, err := middleware.GenerateKey(req2)
+		require.NoError(t, err)
+		key3, err := middleware.GenerateKey(req3)
+		require.NoError(t, err)
 
 		assert.Equal(t, key1, key2, "Keys should match despite different Cookie/Authorization headers")
 		assert.Equal(t, key1, key3, "Keys should match with or without Cookie/Authorization headers")

@@ -2,6 +2,7 @@ package ratelimit
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strings"
 
@@ -29,6 +30,9 @@ func New(requestsPerSecond float64, burst int) *RateLimiterMiddleware {
 func (m *RateLimiterMiddleware) Process(ctx context.Context, httpClient *http.Client, req *http.Request, next middleware.NextFunc) (*http.Response, error) {
 	// Wait for rate limiter permission
 	if err := m.limiter.Wait(ctx); err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return nil, errs.ErrTimeout
+		}
 		if strings.Contains(err.Error(), "would exceed context deadline") {
 			return nil, errs.ErrTimeout
 		}

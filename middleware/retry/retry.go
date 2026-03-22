@@ -2,6 +2,8 @@ package retry
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -46,6 +48,23 @@ func (m *RetryMiddleware) Process(ctx context.Context, httpClient *http.Client, 
 	// Retry the request using the backoff strategy
 	err := backoff.RetryNotify(
 		func() error {
+			// Close previous response body to prevent resource leaks
+			if resp != nil && resp.Body != nil {
+				io.Copy(io.Discard, resp.Body)
+				resp.Body.Close()
+				resp = nil
+			}
+
+			// Reset request body for retry attempts
+			if req.GetBody != nil {
+				body, err := req.GetBody()
+				if err != nil {
+					return backoff.Permanent(fmt.Errorf("%w: %w", errs.ErrRequestCreation, err))
+				}
+				req.Body = body
+			}
+
+			// Execute the middleware chain and classify the result for retry
 			var err error
 			resp, err = next(ctx, httpClient, req)
 			return m.handleRetryError(resp, err)

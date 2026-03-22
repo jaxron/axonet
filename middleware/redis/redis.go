@@ -3,7 +3,6 @@ package redis
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -54,7 +53,10 @@ func (m *RedisMiddleware) Process(ctx context.Context, httpClient *http.Client, 
 		return next(ctx, httpClient, req)
 	}
 
-	key := m.GenerateKey(req)
+	key, err := m.GenerateKey(req)
+	if err != nil {
+		return nil, err
+	}
 
 	// Try to get the cached response
 	cachedResp, err := m.getFromCache(ctx, key)
@@ -87,7 +89,7 @@ func (m *RedisMiddleware) Process(ctx context.Context, httpClient *http.Client, 
 		}
 
 		// Cache the response
-		go m.cacheResponse(ctx, key, resp, bodyBytes)
+		go m.cacheResponse(context.WithoutCancel(ctx), key, resp, bodyBytes)
 	}
 
 	return resp, nil
@@ -137,13 +139,13 @@ func (m *RedisMiddleware) cacheResponse(ctx context.Context, key string, resp *h
 
 	cmd := m.client.B().Set().Key(key).Value(string(jsonData)).Ex(m.expiration).Build()
 	err = m.client.Do(ctx, cmd).Error()
-	if err != nil && !errors.Is(err, context.Canceled) {
+	if err != nil {
 		m.logger.WithFields(logger.String("error", err.Error())).Error("Failed to cache response")
 	}
 }
 
 // GenerateKey hashes method, URL, non-sensitive headers, and body into a cache key.
-func (m *RedisMiddleware) GenerateKey(req *http.Request) string {
+func (m *RedisMiddleware) GenerateKey(req *http.Request) (string, error) {
 	h := xxhash.New()
 	h.Write([]byte(req.Method))
 	h.Write([]byte(req.URL.String()))
@@ -160,14 +162,14 @@ func (m *RedisMiddleware) GenerateKey(req *http.Request) string {
 	if req.Body != nil {
 		body, err := io.ReadAll(req.Body)
 		if err != nil {
-			m.logger.WithFields(logger.String("error", err.Error())).Error("Failed to read request body for caching")
+			return "", fmt.Errorf("failed to read request body: %w", err)
 		}
 
 		h.Write(body)
 		req.Body = io.NopCloser(bytes.NewReader(body))
 	}
 
-	return fmt.Sprintf("cache:%x", h.Sum64())
+	return fmt.Sprintf("cache:%x", h.Sum64()), nil
 }
 
 // ReconstructResponse creates an http.Response from a cached response.
