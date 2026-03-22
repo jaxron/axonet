@@ -101,7 +101,7 @@ func TestRetryMiddleware(t *testing.T) {
 	t.Run("Server error carries status code", func(t *testing.T) {
 		t.Parallel()
 
-		middleware := retry.New(0, 10*time.Millisecond, 100*time.Millisecond)
+		middleware := retry.New(1, 10*time.Millisecond, 100*time.Millisecond)
 		middleware.SetLogger(logger.NewBasicLogger())
 
 		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
@@ -121,7 +121,7 @@ func TestRetryMiddleware(t *testing.T) {
 	t.Run("Too many requests carries status code", func(t *testing.T) {
 		t.Parallel()
 
-		middleware := retry.New(0, 10*time.Millisecond, 100*time.Millisecond)
+		middleware := retry.New(1, 10*time.Millisecond, 100*time.Millisecond)
 		middleware.SetLogger(logger.NewBasicLogger())
 
 		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
@@ -183,5 +183,51 @@ func TestRetryMiddleware(t *testing.T) {
 		assert.Nil(t, resp)
 		require.ErrorIs(t, err, context.Canceled)
 		assert.Equal(t, 2, attempts)
+	})
+
+	t.Run("Unlimited retries with zero maxAttempts", func(t *testing.T) {
+		t.Parallel()
+
+		attempts := 0
+		middleware := retry.New(0, 10*time.Millisecond, 100*time.Millisecond)
+		middleware.SetLogger(logger.NewBasicLogger())
+
+		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
+		handler := func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
+			attempts++
+			if attempts >= 10 {
+				return &http.Response{StatusCode: http.StatusOK}, nil
+			}
+			return nil, errs.ErrTemporary
+		}
+
+		resp, err := middleware.Process(context.Background(), &http.Client{}, req, handler)
+		require.NoError(t, err)
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+		assert.Equal(t, 10, attempts)
+	})
+
+	t.Run("Unlimited retries stopped by context cancellation", func(t *testing.T) {
+		t.Parallel()
+
+		attempts := 0
+		middleware := retry.New(0, 10*time.Millisecond, 100*time.Millisecond)
+		middleware.SetLogger(logger.NewBasicLogger())
+
+		ctx, cancel := context.WithCancel(context.Background())
+		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
+		handler := func(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
+			attempts++
+			if attempts == 5 {
+				cancel()
+			}
+			return nil, errs.ErrTemporary
+		}
+
+		resp, err := middleware.Process(ctx, &http.Client{}, req, handler)
+		require.Error(t, err)
+		assert.Nil(t, resp)
+		require.ErrorIs(t, err, context.Canceled)
+		assert.Equal(t, 5, attempts)
 	})
 }

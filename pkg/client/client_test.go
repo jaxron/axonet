@@ -157,6 +157,7 @@ func TestClientDo(t *testing.T) { //nolint:funlen
 		client := NewTestClient(client.WithMiddleware(middleware))
 
 		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
 		go func() {
 			time.Sleep(50 * time.Millisecond)

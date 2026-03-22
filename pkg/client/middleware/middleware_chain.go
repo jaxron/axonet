@@ -97,7 +97,7 @@ func (c *Chain) performRequest(ctx context.Context, httpClient *http.Client, req
 	).Debug("Request started")
 
 	// Send the request
-	resp, err := httpClient.Do(req.WithContext(ctx))
+	resp, err := httpClient.Do(req.WithContext(ctx)) //nolint:gosec // URL is caller-controlled by design
 
 	duration := time.Since(start)
 	if err != nil {

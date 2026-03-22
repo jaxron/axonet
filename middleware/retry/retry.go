@@ -31,12 +31,15 @@ func New(maxAttempts uint64, initialInterval, maxInterval time.Duration) *RetryM
 
 // Process retries failed requests with exponential backoff.
 func (m *RetryMiddleware) Process(ctx context.Context, httpClient *http.Client, req *http.Request, next middleware.NextFunc) (*http.Response, error) {
-	// Create an exponential backoff strategy with a maximum number of retries
-	expBackoff := backoff.WithMaxRetries(backoff.NewExponentialBackOff(
+	// Exponential backoff strategy
+	var b backoff.BackOff = backoff.NewExponentialBackOff(
 		backoff.WithInitialInterval(m.initialInterval),
 		backoff.WithMaxInterval(m.maxInterval),
-	), m.maxAttempts)
-	backoffStrategy := backoff.WithContext(expBackoff, ctx)
+	)
+	if m.maxAttempts > 0 {
+		b = backoff.WithMaxRetries(b, m.maxAttempts)
+	}
+	backoffStrategy := backoff.WithContext(b, ctx)
 
 	var resp *http.Response
 
