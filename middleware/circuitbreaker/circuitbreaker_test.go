@@ -22,7 +22,7 @@ func TestCircuitBreakerMiddleware(t *testing.T) {
 	t.Run("Success scenario", func(t *testing.T) {
 		t.Parallel()
 
-		middleware := circuitbreaker.New(5, 10*time.Second, 30*time.Second)
+		middleware := circuitbreaker.New(5, 10*time.Second, 30*time.Second, 3, 0.6)
 		middleware.SetLogger(logger.NewBasicLogger())
 
 		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
@@ -37,7 +37,7 @@ func TestCircuitBreakerMiddleware(t *testing.T) {
 	t.Run("Circuit opens after multiple failures", func(t *testing.T) {
 		t.Parallel()
 
-		middleware := circuitbreaker.New(3, 10*time.Second, 1*time.Second)
+		middleware := circuitbreaker.New(3, 10*time.Second, 1*time.Second, 3, 0.6)
 		middleware.SetLogger(logger.NewBasicLogger())
 
 		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
@@ -60,7 +60,7 @@ func TestCircuitBreakerMiddleware(t *testing.T) {
 	t.Run("Circuit half-open state", func(t *testing.T) {
 		t.Parallel()
 
-		middleware := circuitbreaker.New(3, 10*time.Second, 100*time.Millisecond)
+		middleware := circuitbreaker.New(3, 10*time.Second, 100*time.Millisecond, 3, 0.6)
 		middleware.SetLogger(logger.NewBasicLogger())
 
 		req := httptest.NewRequest(http.MethodGet, "http://example.com", nil)

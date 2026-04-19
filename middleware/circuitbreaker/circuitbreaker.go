@@ -25,7 +25,7 @@ type CircuitBreakerMiddleware struct {
 }
 
 // New creates a new CircuitBreakerMiddleware instance.
-func New(maxRequests uint32, interval, timeout time.Duration) *CircuitBreakerMiddleware {
+func New(maxRequests uint32, interval, timeout time.Duration, minRequests uint32, failureRatio float64) *CircuitBreakerMiddleware {
 	middleware := &CircuitBreakerMiddleware{
 		breaker: nil,
 		logger:  &logger.NoOpLogger{},
@@ -37,8 +37,8 @@ func New(maxRequests uint32, interval, timeout time.Duration) *CircuitBreakerMid
 		Interval:    interval,
 		Timeout:     timeout,
 		ReadyToTrip: func(counts gobreaker.Counts) bool {
-			failureRatio := float64(counts.TotalFailures) / float64(counts.Requests)
-			return counts.Requests >= 3 && failureRatio >= 0.6
+			ratio := float64(counts.TotalFailures) / float64(counts.Requests)
+			return counts.Requests >= minRequests && ratio >= failureRatio
 		},
 		OnStateChange: func(name string, from, to gobreaker.State) {
 			middleware.logger.WithFields(

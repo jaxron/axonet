@@ -165,7 +165,7 @@ import (
 )
 
 c := client.NewClient(
-    client.WithMiddleware(circuitbreaker.New(5, 10*time.Second, 30*time.Second)),
+    client.WithMiddleware(circuitbreaker.New(5, 10*time.Second, 30*time.Second, 3, 0.6)),
     client.WithMiddleware(retry.New(3, 1*time.Second, 5*time.Second)),
     client.WithMiddleware(singleflight.New()),
     client.WithMiddleware(redis.New(rueidisClient, 5*time.Minute)),
