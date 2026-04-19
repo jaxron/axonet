@@ -1,11 +1,11 @@
 module github.com/jaxron/axonet/middleware/ratelimit
 
-go 1.23.1
+go 1.25.0
 
 require (
-	github.com/jaxron/axonet v0.0.0-20241110114112-10fce0f238e1
+	github.com/jaxron/axonet v0.0.0-20260322084616-291a42f8fe4b
 	github.com/stretchr/testify v1.9.0
-	golang.org/x/time v0.8.0
+	golang.org/x/time v0.15.0
 )
 
 require (

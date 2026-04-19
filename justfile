@@ -6,7 +6,7 @@ default:
 
 # Run tests with coverage
 test:
-    go test -v -race -cover ./...
+    go list -m -f '{{{{.Dir}}/...' | xargs go test -v -race -cover
 
 # Run linter
 lint:
